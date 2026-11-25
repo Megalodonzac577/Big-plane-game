@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Great Circle: Real Earth</title>
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Real Earth"><meta name="theme-color" content="#0b1522">
+<link rel="apple-touch-icon" id="appIcon" href="">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <link href="https://cesium.com/downloads/cesiumjs/releases/1.123/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -178,6 +181,20 @@ body{background:linear-gradient(180deg,#2f5f96 0%,#8fb6d8 55%,#d9c9a8 100%)}
 .btn:disabled{opacity:.6}
 #iAglW b{color:var(--sky)}
 #inst #iAglW{display:grid}
+#warn.soft{color:var(--ink);font-size:22px}
+#mapS{z-index:11}
+body.gmap #mapS{background:transparent;pointer-events:none}
+body.gmap #mapC{display:none}
+body.gmap #mapS .panel,body.gmap #mapS button{pointer-events:auto}
+body.gmap #gl,body.gmap #hud{pointer-events:none;visibility:hidden}
+body.gmap #cesium .cesium-viewer-bottom{bottom:auto!important;top:calc(var(--st) + 66px)!important}
+.mzoom button{pointer-events:auto}
+#crash .acts{grid-template-columns:1fr 1fr 1fr}
+#fsHelp{z-index:16}#fsHelp .ctl{grid-template-columns:44px 1fr}
+.mtop .how{margin-right:6px}
+@media (min-width:641px) and (min-height:521px){#bPause{top:calc(var(--st) + 178px)}}
+@media (orientation:landscape) and (max-height:520px){#bPause{top:calc(var(--st) + 112px)}}
+@media (max-width:640px){#inst .sm:not(#iAglW){display:none}#dest{top:calc(var(--st) + 118px)}#toast{top:calc(var(--st) + 182px)}}
 </style>
 </head>
 <body>
@@ -196,11 +213,18 @@ body{background:linear-gradient(180deg,#2f5f96 0%,#8fb6d8 55%,#d9c9a8 100%)}
 </div></div>
 
 <div id="menu" class="screen hidden">
-  <header class="mtop"><h1>Real Earth</h1><p>Real cities in 3D from Google. Pick a plane and a place.</p><button id="newKey" class="how">Change token</button></header>
+  <header class="mtop"><h1>Real Earth</h1><p>Real cities in 3D from Google. Pick a plane and a place.</p><button id="howBtn" class="how">How to play</button><button class="how fsBtn">Full screen</button><button id="newKey" class="how">Change token</button></header>
   <section class="sheet">
     <div><div class="lab">Aircraft</div><div id="planes" class="cards"></div></div>
     <div><div class="lab">Start over</div><div id="locs" class="chips"></div></div>
-    <div><div class="lab">Stick: pull down to climb</div><div class="seg" id="invSeg"><button data-v="false">Pilot style</button><button data-v="true">Inverted</button></div></div>
+    <div class="row2">
+      <div><div class="lab">Time of day</div><div class="seg" data-k="tod"><button data-v="morning">Morning</button><button data-v="midday">Midday</button><button data-v="sunset">Sunset</button></div></div>
+      <div><div class="lab">Clouds</div><div class="seg" data-k="wx"><button data-v="clear">Clear</button><button data-v="scattered">Scattered</button><button data-v="cloudy">Cloudy</button></div></div>
+    </div>
+    <div class="row2">
+      <div><div class="lab">Graphics</div><div class="seg" data-k="q"><button data-v="fast">Fast</button><button data-v="balanced">Balanced</button><button data-v="sharp">Sharp</button></div></div>
+      <div><div class="lab">Stick: pull down to climb</div><div class="seg" data-k="invert"><button data-v="false">Pilot style</button><button data-v="true">Inverted</button></div></div>
+    </div>
     <button id="go" class="go">Take off</button>
   </section>
 </div>
@@ -211,23 +235,72 @@ body{background:linear-gradient(180deg,#2f5f96 0%,#8fb6d8 55%,#d9c9a8 100%)}
     <div class="ins"><span>Altitude</span><b id="iAlt">0</b><i id="uAlt">ft</i></div>
     <div class="ins sm" id="iAglW"><span>Above ground</span><b id="iAgl">—</b><i id="uAgl">ft</i></div>
     <div class="ins sm"><span>Heading</span><b id="iHdg">000°</b></div>
+    <div class="ins sm"><span>Climb</span><b id="iVs">0</b><i id="uVs">ft/min</i></div>
   </div>
-  <button id="bMenu" class="panel" style="position:absolute;top:calc(var(--st) + 134px);left:calc(var(--sl) + 10px);height:44px;padding:0 16px;border-radius:12px;font-weight:600">Places</button>
-  <div id="miniW"><canvas id="miniC" aria-label="Minimap"></canvas><div id="loc"></div></div>
+  <button id="bPause" class="panel">Pause</button>
+  <button id="dest" class="panel" aria-label="Destination, open map"><svg id="dArr" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7.5 19-7.5-4.5L4.5 21z"/></svg><div><b id="dName">Free flight</b><span id="dInfo">Tap to pick a place on the map</span></div></button>
+  <div id="miniW"><canvas id="miniC" aria-label="Minimap, tap for the map"></canvas><button id="mz" class="mini-z" aria-label="Change minimap zoom">−</button><div id="loc"></div></div>
   <div id="warn"></div>
   <div id="stick" aria-label="Flight stick"><div id="knob"></div></div>
-  <div id="keys" class="panel"><b>W S</b> pitch · <b>A D</b> roll · <b>Q E</b> rudder<br><b>Shift Ctrl</b> or <b>1–0</b> throttle · <b>C</b> camera · drag to look</div>
+  <div id="keys" class="panel"><b>W S</b> pitch · <b>A D</b> roll · <b>Q E</b> rudder<br><b>Shift Ctrl</b> or <b>1–0</b> throttle · <b>C</b> camera<br><b>M</b> map · <b>P</b> autopilot · <b>T</b> time speed · <b>G</b> gear · drag to look</div>
   <div id="right">
-    <div class="btns" style="grid-template-columns:68px"><button id="bCam">Chase</button></div>
+    <div class="btns"><button id="bGear">Gear</button><button id="bCam">Chase</button><button id="bAuto">Auto</button><button id="bWarp">×1</button><button id="bMap">Map</button></div>
     <div id="thr" aria-label="Throttle"><div id="thrFill"></div><div id="thrKnob"></div><span id="thrTxt">50%</span></div>
   </div>
 </div>
 <div id="toast" role="status"></div>
+<div id="pause" class="screen dim hidden"><div class="dlg panel">
+  <h2>Paused</h2>
+  <div class="acts"><button id="pResume" class="btn pri">Resume</button><button id="pMenu" class="btn">Menu</button></div><div class="acts"><button id="pHow" class="btn">How to play</button><button class="btn fsBtn">Full screen</button></div>
+  <div class="set"><div class="lab">Graphics</div><div class="seg" data-k="q"><button data-v="fast">Fast</button><button data-v="balanced">Balanced</button><button data-v="sharp">Sharp</button></div></div>
+  <div class="set"><div class="lab">Time of day</div><div class="seg" data-k="tod"><button data-v="morning">Morning</button><button data-v="midday">Midday</button><button data-v="sunset">Sunset</button></div></div>
+  <div class="set"><div class="lab">Clouds</div><div class="seg" data-k="wx"><button data-v="clear">Clear</button><button data-v="scattered">Scattered</button><button data-v="cloudy">Cloudy</button></div></div>
+  <div class="set"><div class="lab">Units</div><div class="seg" data-k="units"><button data-v="imp">Knots · feet</button><button data-v="met">km/h · metres</button></div></div>
+  <div class="set"><div class="lab">Stick: pull down to climb</div><div class="seg" data-k="invert"><button data-v="false">Pilot style</button><button data-v="true">Inverted</button></div></div>
+  <div class="set"><div class="lab">Flight assist (levels the wings when you let go)</div><div class="seg" data-k="assist"><button data-v="true">On</button><button data-v="false">Off</button></div></div>
+  <div class="set"><div class="lab">Engine sound</div><div class="seg" data-k="sound"><button data-v="true">On</button><button data-v="false">Off</button></div></div>
+</div></div>
+<div id="fsHelp" class="screen dim hidden"><div class="dlg panel" role="dialog" aria-labelledby="fsT">
+  <h2 id="fsT">Full screen on iPhone</h2>
+  <p>Safari on iPhone can't hide its bars for a web page, but a home-screen app can. It takes a few seconds:</p>
+  <div class="ctl"><span class="key">1</span><span>Tap <b>Share</b> (the square with an arrow) in Safari. If you don't see it, tap <b>⋯</b> first.</span></div>
+  <div class="ctl"><span class="key">2</span><span>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</span></div>
+  <div class="ctl"><span class="key">3</span><span>Open <b>Real Earth</b> from your home screen. It fills the whole screen, with no address bar.</span></div>
+  <p class="small">The home-screen app keeps its own storage, so paste your Cesium token once more the first time you open it.</p>
+  <button id="fsClose" class="btn pri">Got it</button>
+</div></div>
+<div id="how" class="screen dim hidden"><div class="dlg panel" role="dialog" aria-labelledby="howT">
+  <h2 id="howT">How to play</h2>
+  <p>Fly over Google's real 3D world. Pick a plane and a city, or tap <b>Pick on map…</b> to start anywhere on Earth. Turn your phone sideways for the best view.</p>
+  <div class="lab">Phone and tablet controls</div>
+  <div class="stickrow"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="56" fill="rgba(10,16,24,.5)" stroke="rgba(255,255,255,.25)"/><circle cx="60" cy="60" r="20" fill="#f3f6fa"/>
+    <g fill="#8fd3ff" font-family="Barlow Semi Condensed,sans-serif" font-size="12" font-weight="700" text-anchor="middle"><path d="M60 96l-6-8h12z"/><text x="60" y="114">Climb</text><path d="M60 24l-6 8h12z"/><text x="60" y="15">Dive</text><path d="M24 60l8-6v12z"/><path d="M96 60l-8-6v12z"/></g></svg>
+    <div><b>Left stick steers.</b> Drag down to climb, drag up to dive, drag left or right to bank and turn. Let go and the wings level themselves.</div></div>
+  <div class="ctl"><span class="key">Throttle</span><span>The slider on the right. Slide up to go faster. Too slow and you stall.</span></div>
+  <div class="ctl"><span class="key">Gear</span><span>Lowers or raises the wheels. Lower them before landing; touching down without wheels is a crash.</span></div>
+  <div class="ctl"><span class="key">Chase</span><span>Changes the camera: chase, cockpit, flyby.</span></div>
+  <div class="ctl"><span class="key">Auto</span><span>Autopilot holds your height and heading, or flies you to the place you picked and circles it. Move the stick to take over.</span></div>
+  <div class="ctl"><span class="key">×1</span><span>Speeds up time: ×4 once you're 150 m (500 ft) off the ground, ×16 and ×64 above 1 km (3,300 ft). It slows down by itself near the ground and your destination.</span></div>
+  <div class="ctl"><span class="key">Map</span><span>Spin the real globe and tap any spot or yellow pin, then <b>Autopilot there</b> or <b>Teleport here</b>. <b>Random city</b> picks a trip for you.</span></div>
+  <div class="ctl"><span class="key route">Pink box</span><span>Your destination, distance and time to get there. Tap it to open the map.</span></div>
+  <div class="ctl"><span class="key">Minimap</span><span>Tap it to open the map. The small button changes its zoom.</span></div>
+  <div class="ctl"><span class="key">Pause</span><span>Settings: graphics, time of day, clouds, units, stick, flight assist and sound.</span></div>
+  <p class="small">To land, lower the gear, slow down and sink gently onto a runway or flat ground. Hitting buildings, hills or water is a crash, with a big explosion.</p>
+  <div class="lab">Keyboard</div>
+  <p class="small">W/S pitch, A/D roll, Q/E rudder, Shift/Ctrl or 1–0 throttle, C camera, M map, P autopilot, T time speed, G landing gear, Esc pause.</p>
+  <button id="howClose" class="btn pri">Got it</button>
+</div></div>
 <div id="flash"></div>
 <div id="crash" class="screen dim hidden"><div class="dlg panel">
   <h2>Crashed</h2><p id="crashMsg"></p>
-  <div class="acts"><button id="cRes" class="btn pri">Fly again here</button><button id="cMenu" class="btn">Places</button></div>
+  <div class="acts"><button id="cRes" class="btn pri">Fly again</button><button id="cMap" class="btn">Map</button><button id="cMenu" class="btn">Menu</button></div>
 </div></div>
+<div id="mapS" class="screen hidden">
+  <canvas id="mapC"></canvas>
+  <div class="mtitle panel" id="mTitle">Map</div>
+  <div class="mzoom"><button id="mzIn" aria-label="Zoom in">+</button><button id="mzOut" aria-label="Zoom out">−</button></div>
+  <div class="mapbar panel"><div id="mInfo"></div><div class="mbtns"><button id="mAP" class="btn pri">Autopilot there</button><button id="mJump" class="btn">Teleport here</button><button id="mStart" class="btn pri">Start here</button><button id="mFree" class="btn">Clear route</button><button id="mRand" class="btn">Random city</button><button id="mClose" class="btn">Close</button></div></div>
+</div>
 <script>
 window.GL_ALPHA=1;
 {
@@ -957,6 +1030,69 @@ function buildGear(d){if(!d.gear)return null;const mb=new MB();let gh=0,gl2=0;co
   d.gh=gh;return{mesh:uploadMesh(mb),len:gl2}}
 function freeModel(m){if(!m)return;freeMesh(m.body);freeMesh(m.ab);if(m.gear)freeMesh(m.gear.mesh);m.props.forEach(p=>{freeMesh(p.blades);freeMesh(p.disc)})}
 
+// ---------- explosions: fireball, smoke, debris, sparks, splash + sound ----------
+const VS_FX=`#version 300 es
+in vec2 aQ; in vec3 iP; in float iS; in vec4 iC; in float iK;
+uniform mat4 uVP; uniform vec3 uCR; uniform vec3 uCU;
+out vec2 vQ; out vec4 vC; out float vK; out float vR;
+void main(){ vQ=aQ; vC=iC; vK=floor(iK); vR=fract(iK); vec3 w=iP+(uCR*aQ.x+uCU*aQ.y)*iS; gl_Position=uVP*vec4(w,1.0); }`;
+const FS_FX=`#version 300 es
+precision highp float; in vec2 vQ; in vec4 vC; in float vK; in float vR; out vec4 o;
+void main(){ float r=length(vQ); if(r>1.0) discard;
+  float an=atan(vQ.y,vQ.x); float n=0.78+0.22*sin(an*5.0+vR*40.0)*sin(r*9.0-vR*25.0);
+  if(vK<0.5){ float a=pow(max(1.0-r,0.0),1.4)*n; o=vec4(vC.rgb*a*vC.a,0.0); }
+  else { float a=smoothstep(1.0,0.25,r+(0.78-n)*0.5)*vC.a; o=vec4(vC.rgb*a,a); } }`;
+let PF=null,fxVao=null,fxBuf=null;
+const FX={parts:[],O:null,f:null,shake:0,gY:0};
+function initFx(){PF=mkProg(VS_FX,FS_FX,['aQ','iP','iS','iC','iK']);fxVao=gl.createVertexArray();gl.bindVertexArray(fxVao);
+  const q=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,q);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+  fxBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,fxBuf);gl.bufferData(gl.ARRAY_BUFFER,36,gl.DYNAMIC_DRAW);
+  [[1,3,0],[2,1,12],[3,4,16],[4,1,32]].forEach(([l,n,o])=>{gl.enableVertexAttribArray(l);gl.vertexAttribPointer(l,n,gl.FLOAT,false,36,o);gl.vertexAttribDivisor(l,1)});
+  gl.bindVertexArray(null)}
+function explode(pos,kind,s){const R=Math.random,rv=m=>{let x,y,z;do{x=R()*2-1;y=R()*2-1;z=R()*2-1}while(x*x+y*y+z*z>1);return[x*m,y*m,z*m]};
+  FX.parts=[];FX.O=pos.slice();FX.f=frameAt(pos);FX.shake=1;FX.gY=-Math.max(0,len(pos)-RE)*1000;
+  const add=o=>FX.parts.push(Object.assign({age:0,seed:R(),delay:0,drag:1,grav:0,lift:0},o)),water=kind==='water';
+  for(let i=0;i<(water?10:30);i++){const v=rv(42*s);v[1]=Math.abs(v[1])*.7+6*s;add({t:0,p:rv(5*s),v,life:1.1+R()*1.3,s0:7*s,s1:(26+R()*18)*s,drag:2.6,lift:6*s})}
+  FX.wind=[(R()*2-1)*4*s,0,(R()*2-1)*4*s];
+  for(let i=0;i<64;i++){const v=rv(7*s);v[1]=Math.abs(v[1])+4*s+R()*7*s;add({t:1,p:rv(7*s),v,life:7+R()*6,s0:6*s,s1:(28+R()*34)*s,drag:.5,lift:3.6*s,delay:R()*4.5,g:water?.85:.15+R()*.2,wind:1})}
+  for(let i=0;i<24;i++){const v=rv(70*s);v[1]=Math.abs(v[1])+20*s;add({t:2,p:[0,1,0],v,life:2.4+R()*1.6,s0:(.9+R()*1.6)*s,s1:(.9+R()*1.6)*s,drag:.15,grav:9.8})}
+  for(let i=0;i<44;i++){const v=rv(60*s);v[1]=Math.abs(v[1])+10*s;add({t:3,p:[0,1,0],v,life:.6+R()*1,s0:1.1*s,s1:.4*s,drag:.4,grav:9.8})}
+  if(water)for(let i=0;i<50;i++){const v=rv(14*s);v[1]=25*s+R()*32*s;add({t:4,p:rv(6*s),v,life:2+R()*1.6,s0:5*s,s1:(18+R()*12)*s,drag:.5,grav:9.8})}}
+function updFx(dt){if(FX.shake>0)FX.shake=Math.max(0,FX.shake-dt*1.1);if(!FX.parts.length)return;
+  for(const q of FX.parts){if(q.delay>0){q.delay-=dt;continue}q.age+=dt;const k=Math.exp(-q.drag*dt);q.v=mul(q.v,k);q.v[1]+=(q.lift-q.grav)*dt;q.p=add(q.p,mul(q.v,dt));if(q.wind&&FX.wind)q.p=add(q.p,mul(FX.wind,dt*Math.min(1,q.age/2)));
+    const floor=FX.gY+(q.t===2?.4:0);if(q.p[1]<floor){q.p[1]=floor;q.v=[q.v[0]*.5,Math.abs(q.v[1])*.25,q.v[2]*.5]}}
+  FX.parts=FX.parts.filter(q=>q.age<q.life)}
+function drawFx(fy,as,depthReady){if(!FX.parts.length||!PF)return;const f=FX.f,base=mul(sub(FX.O,cam.pos),1000),L=ENV.trail,sm=[],fi=[];
+  for(const q of FX.parts){if(q.delay>0)continue;const u=q.age/q.life,w=add(base,add(add(mul(f.E,q.p[0]),mul(f.L,q.p[1])),mul(f.N,-q.p[2]))),sz=q.s0+(q.s1-q.s0)*Math.sqrt(u),k=q.seed*.99;
+    if(q.t===0)fi.push([w,sz,[mix(1,.95,u),mix(.82,.28,u),mix(.5,.06,u),(1-u)*(1-u)*1.5],k]);
+    else if(q.t===3)fi.push([w,sz,[1,.72,.32,(1-u)*1.6],k]);
+    else if(q.t===1){const hot=Math.max(0,1-u*5);sm.push([w,sz,[L[0]*q.g+.4*hot,L[1]*q.g+.14*hot,L[2]*q.g+.03*hot,Math.min(1,u*8)*(1-u)*.6],1+k])}
+    else if(q.t===2)sm.push([w,sz,[.025,.022,.02,1],1+k]);
+    else sm.push([w,sz,[L[0]*.95,L[1]*.97,L[2],(1-u)*.8],1+k])}
+  sm.sort((a,b)=>len(b[0])-len(a[0]));
+  const VP=m4mul(persp(fy,as,2,70000),viewM(cam.R,cam.U,cam.F));if(!depthReady)gl.clear(gl.DEPTH_BUFFER_BIT);
+  gl.useProgram(PF.p);gl.uniformMatrix4fv(PF.u.uVP,false,VP);gl.uniform3fv(PF.u.uCR,cam.R);gl.uniform3fv(PF.u.uCU,cam.U);
+  gl.enable(gl.DEPTH_TEST);gl.depthMask(false);gl.enable(gl.BLEND);gl.bindVertexArray(fxVao);gl.bindBuffer(gl.ARRAY_BUFFER,fxBuf);
+  for(const[list,bf]of[[sm,gl.ONE_MINUS_SRC_ALPHA],[fi,gl.ONE]]){if(!list.length)continue;const a=new Float32Array(list.length*9);let o=0;
+    for(const[w,sz,c,k]of list){a[o++]=w[0];a[o++]=w[1];a[o++]=w[2];a[o++]=sz;a[o++]=c[0];a[o++]=c[1];a[o++]=c[2];a[o++]=c[3];a[o++]=k}
+    gl.bufferData(gl.ARRAY_BUFFER,a,gl.DYNAMIC_DRAW);gl.blendFunc(gl.ONE,bf);gl.drawArraysInstanced(gl.TRIANGLE_STRIP,0,4,list.length)}
+  gl.depthMask(true);gl.disable(gl.BLEND);gl.bindVertexArray(null)}
+let WN=null;
+function noiseBuf(){if(!WN){WN=AC.createBuffer(1,AC.sampleRate*3,AC.sampleRate);const d=WN.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1}return WN}
+function boom(water){if(!AC||!S.sound)return;try{if(AC.state==='suspended')AC.resume();const t=AC.currentTime+.02,out=AC.createGain();out.gain.value=.9;out.connect(AC.destination);
+  const env=(g,peak,at,dec)=>{g.gain.setValueAtTime(.0001,t+at);g.gain.exponentialRampToValueAtTime(peak,t+at+.012);g.gain.exponentialRampToValueAtTime(.0001,t+at+dec)};
+  const n=AC.createBufferSource();n.buffer=noiseBuf();const lp=AC.createBiquadFilter();lp.type='lowpass';lp.frequency.setValueAtTime(water?3000:2000,t);lp.frequency.exponentialRampToValueAtTime(water?500:120,t+2.6);
+  const g=AC.createGain();env(g,1,0,water?2.2:3.4);n.connect(lp).connect(g).connect(out);n.start(t);n.stop(t+3.6);
+  const o=AC.createOscillator();o.type='sine';o.frequency.setValueAtTime(water?70:95,t);o.frequency.exponentialRampToValueAtTime(26,t+1.3);const og=AC.createGain();env(og,water?.5:1,0,1.7);o.connect(og).connect(out);o.start(t);o.stop(t+1.8);
+  for(let i=0;i<(water?6:16);i++){const tt=.2+Math.random()*2.4,c=AC.createBufferSource();c.buffer=noiseBuf();const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.value=500+Math.random()*2800;bp.Q.value=1.4;
+    const cg=AC.createGain();env(cg,.06+Math.random()*.25,tt,.08+Math.random()*.12);c.connect(bp).connect(cg).connect(out);c.start(t+tt,Math.random()*2);c.stop(t+tt+.3)}
+  if(water){const w=AC.createBufferSource();w.buffer=noiseBuf();const hp=AC.createBiquadFilter();hp.type='highpass';hp.frequency.value=900;const wg=AC.createGain();env(wg,.5,.05,1.6);w.connect(hp).connect(wg).connect(out);w.start(t,.5);w.stop(t+2)}
+  }catch(e){}}
+function whir(){if(!AC||!S.sound)return;try{const t=AC.currentTime,n=AC.createBufferSource();n.buffer=noiseBuf();const bp=AC.createBiquadFilter();bp.type='bandpass';bp.frequency.setValueAtTime(260,t);bp.frequency.linearRampToValueAtTime(420,t+1.4);bp.Q.value=4;
+  const g=AC.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.35,t+.15);g.gain.setValueAtTime(.35,t+1.3);g.gain.exponentialRampToValueAtTime(.0001,t+1.8);n.connect(bp).connect(g).connect(AC.destination);n.start(t);n.stop(t+1.9);
+  const c=AC.createOscillator();c.type='square';c.frequency.value=55;const cg=AC.createGain();cg.gain.setValueAtTime(.0001,t+1.75);cg.gain.exponentialRampToValueAtTime(.25,t+1.77);cg.gain.exponentialRampToValueAtTime(.0001,t+1.95);c.connect(cg).connect(AC.destination);c.start(t+1.7);c.stop(t+2)}catch(e){}}
+
 // ---------- Real Earth edition: Google Photorealistic 3D Tiles via CesiumJS ----------
 const store={get(k,d){try{const v=localStorage.getItem('gc3_'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('gc3_'+k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem('gc3_'+k)}catch(e){}}};
 const coarse=matchMedia('(pointer: coarse)').matches||('ontouchstart' in window);
@@ -964,86 +1100,209 @@ const coarse=matchMedia('(pointer: coarse)').matches||('ontouchstart' in window)
 const SPOTS=[['New York',40.7006,-74.0232,450,40],['San Francisco',37.7955,-122.493,400,90],['London',51.4965,-0.16,400,80],['Paris',48.852,2.26,450,60],
  ['Tokyo',35.65,139.73,450,0],['Sydney',-33.87,151.195,400,60],['Rio de Janeiro',-22.97,-43.25,900,40],['Dubai',25.18,55.24,950,40],
  ['Las Vegas',36.07,-115.18,1000,0],['Grand Canyon',36.06,-112.2,2600,60],['Matterhorn',45.95,7.62,5000,200],['Honolulu',21.26,-157.83,500,280]];
-const S={screen:'loading',planeId:PL[store.get('plane','airliner')]?store.get('plane','airliner'):'airliner',spot:store.get('spot',0),plane:null,model:null,t:0,ground:null,cam:'chase',
-  invert:store.get('invert',false),units:store.get('units','imp'),assist:true,sun:[0,1,0],map:false};
+const QS=['fast','balanced','sharp'],WARPS=[1,4,16,64],CLN={clear:0,scattered:34,cloudy:80};
+const S={screen:'loading',planeId:PL[store.get('plane','airliner')]?store.get('plane','airliner'):'airliner',spot:store.get('spot',0),custom:store.get('custom',null),plane:null,model:null,t:0,ground:null,gAhead:null,cam:'chase',
+  invert:store.get('invert',false),units:store.get('units','imp'),assist:true,sun:[0,1,0],q:QS.includes(store.get('q','balanced'))?store.get('q','balanced'):'balanced',
+  target:null,ap:{on:false,alt:0,hdg:0,v:0,orbit:false},hold:0,holdT:0,holdN:0,holdSnap:false,trail:[],trailT:0,noExtras:false,
+  warp:1,paused:false,assist:store.get('assist',true),sound:store.get('sound',true),tod:['morning','midday','sunset'].includes(store.get('tod'))?store.get('tod'):'midday',
+  wx:CLN[store.get('wx')]!==undefined?store.get('wx'):'scattered',visited:store.get('visited',0)};
+if(!(S.spot>=0&&S.spot<SPOTS.length)&&!(S.spot===-1&&S.custom))S.spot=0;
 const inp={p:0,r:0,y:0,keys:new Set(),stick:[0,0]};
-const cam={pos:[RE+1,0,0],F:[0,0,-1],U:[0,1,0],R:[1,0,0],sF:null,sU:null,orbY:0,orbP:0,orbT:0};
-const ENV={exp:.5,sunC:[15,15,15],zen:[.1,.2,.4],hor:[.3,.3,.3],gnd:[.05,.05,.05],k:0};
-let V=null,TS=null,vw=innerWidth,vh=innerHeight,dpr=1,CT={tX:1,tY:1,fy:1},PP=null,gsT=0,last=performance.now(),looping=false;
+const cam={mode:'chase',pos:[RE+1,0,0],F:[0,0,-1],U:[0,1,0],R:[1,0,0],sF:null,sU:null,orbY:0,orbP:0,orbT:0,zoom:1,fly:null};
+const ENV={exp:.5,sunC:[15,15,15],zen:[.1,.2,.4],hor:[.3,.3,.3],gnd:[.05,.05,.05],trail:[1,1,1],night:0,k:0};
+const TR={pts:[],acc:0};
+let V=null,TS=null,GRS=null,CL=null,clKey='',vw=innerWidth,vh=innerHeight,dpr=1,CT={tX:1,tY:1,fy:1},PP=null,PT=null,trailVao=null,trailBuf=null,gsT=0,gsOdd=false,last=performance.now();
 
 // ---------- setup ----------
-function setSun(sp){const f=frameAt(ll2v(sp[1],sp[2])),az=(sp[1]>=0?160:20)*D2R,el=50*D2R;S.sun=norm(add(mul(add(mul(f.N,Math.cos(az)),mul(f.E,Math.sin(az))),Math.cos(el)),mul(f.L,Math.sin(el))))}
+function spotInfo(i){if(i===-1&&S.custom)return{name:S.custom.name,lat:S.custom.lat,lon:S.custom.lon,alt:null,hdg:0};const s=SPOTS[i]||SPOTS[0];return{name:s[0],lat:s[1],lon:s[2],alt:s[3]/1000,hdg:s[4]*D2R}}
+// early afternoon, late spring for wherever you are, so the sky and the 3D city agree
+function solarHour(lat,dec,el,pm){const f=lat*D2R,d=dec*D2R,c=(Math.sin(el*D2R)-Math.sin(f)*Math.sin(d))/(Math.cos(f)*Math.cos(d)||1e-6),H=Math.acos(clamp(c,-1,1))/D2R/15;return pm?12+H:12-H}
+function setDay(lat,lon){const north=lat>=-10,N=north?140:324,dec=23.44*Math.sin(2*Math.PI*(284+N)/365);
+  const hr=S.tod==='morning'?solarHour(lat,dec,15,false):S.tod==='sunset'?solarHour(lat,dec,6,true):13.3;let utc=hr-lon/15;utc=((utc%24)+24)%24;
+  S.sun=norm(ll2v(dec,-(utc-12)*15));ENV.k=0;
+  if(V){try{V.clock.shouldAnimate=false;V.clock.currentTime=Cesium.JulianDate.fromDate(new Date(Date.UTC(2026,north?4:10,20)+utc*3600e3))}catch(e){console.warn(e)}}}
 function placePlane(ll,altKm,hdg){const d=PL[S.planeId],p=mul(ll2v(ll[0],ll[1]),RE+altKm),f=frameAt(p),F=norm(add(mul(f.N,Math.cos(hdg)),mul(f.E,Math.sin(hdg))));
-  S.plane={d,pos:p,F,U:f.L,R:cross(F,f.L),v:clamp(d.vMax*.55,d.vMin*1.4,.16),thr:.5,alt:altKm,crashed:false};cam.sF=null;S.ground=null;syncThr()}
-function startSpot(i){S.spot=i;store.set('spot',i);const sp=SPOTS[i];setSun(sp);placePlane([sp[1],sp[2]],sp[3]/1000,sp[4]*D2R)}
+  S.plane={d,pos:p,F,U:f.L,R:cross(F,f.L),v:clamp(d.vMax*.55,d.vMin*1.4,.16),thr:.5,alt:altKm,crashed:false,grounded:false,gear:!!d.fixedGear,gearExt:d.fixedGear?1:0};
+  cam.sF=null;cam.fly=null;S.ground=null;S.gAhead=null;S.trail=[];TR.pts=[];FX.parts.length=0;syncThr()}
+function beginHold(snap){S.hold=V?1:0;S.holdT=0;S.holdN=0;S.holdSnap=snap}
+function startSpot(i){S.spot=i;store.set('spot',i);const s=spotInfo(i);setDay(s.lat,s.lon);placePlane([s.lat,s.lon],s.alt??elevGuess(s.lat,s.lon)+.8,s.hdg);makeClouds(s.lat,s.lon,s.alt??.8);beginHold(s.alt===null)}
 function setModel(){freeModel(S.model);S.model=buildModel(S.planeId)}
+function setAlt(a){const P=S.plane;P.pos=mul(norm(P.pos),RE+a);P.alt=a}
+// wait for the city to stream in under a new start point, then lift the plane clear of it
+function holdStep(dt){S.holdT+=dt;const P=S.plane;
+  if(S.ground!==null){if(S.holdSnap)setAlt(S.ground+.5);else if(P.alt<S.ground+.25)setAlt(S.ground+.35)}
+  if(S.screen==='fly'&&((S.holdT>(S.holdSnap?1.2:.5)&&S.holdN>=3&&(!TS||TS.tilesLoaded))||S.holdT>7))S.hold=0}
 
 // ---------- flight model ----------
 function rp(a,b,ang){const c=Math.cos(ang),s=Math.sin(ang);return[add(mul(a,c),mul(b,s)),sub(mul(b,c),mul(a,s))]}
 function attitude(P){const f=frameAt(P.pos);return{f,pitch:Math.asin(clamp(dot(P.F,f.L),-1,1)),bank:Math.atan2(-dot(P.R,f.L),dot(P.U,f.L)),hdg:Math.atan2(dot(P.F,f.E),dot(P.F,f.N))}}
-function physics(dt){const P=S.plane,d=P.d;if(P.crashed)return;const{f,pitch,bank}=attitude(P),L=f.L;
-  let pi=inp.p,ri=inp.r,yi=inp.y;if(S.assist&&Math.abs(ri)<.08&&Math.abs(bank)<1.4)ri=clamp(-bank*1.3,-.55,.55);
+function apCmd(P,a,dt){const d=P.d,A=S.ap,auth=clamp(P.v/(d.vMin*1.25),.3,1);let hT=A.hdg;
+  if(S.target){const dist=gcKm(P.pos,S.target.v),brg=bearing(P.pos,S.target.v),r0=1.8;
+    if(!A.orbit&&dist<r0+.3)A.orbit=true;
+    hT=A.orbit?brg-Math.PI/2+clamp((dist-r0)*.7,-.7,.7):brg}
+  const bankT=clamp(wrapPI(hT-a.hdg)*1.4,-.52,.52),r=clamp((bankT-a.bank)*2.2/(d.roll*auth),-1,1);
+  const gnd=Math.max(S.ground??0,S.gAhead??0),altT=Math.max(A.alt,gnd+.3),vsT=clamp((altT-P.alt)*.35,-.012,.02);
+  const pT=Math.asin(clamp(vsT/Math.max(P.v,.01),-.3,.3)),p=clamp((pT-a.pitch)*1.8/(d.pitch*auth),-1,1);
+  P.thr=clamp(P.thr+clamp((A.v-P.v)*12,-.35,.35)*dt,.05,1);return{p,r}}
+function physics(dt){const P=S.plane,d=P.d;if(P.crashed)return;const att=attitude(P),{f,pitch,bank}=att,L=f.L;
+  let pi=inp.p,ri=inp.r,yi=inp.y;
+  if(S.ap.on&&!P.grounded){const c=apCmd(P,att,dt);pi=c.p;ri=c.r;yi=0}else if(S.assist&&Math.abs(ri)<.08&&Math.abs(bank)<1.4)ri=clamp(-bank*1.3,-.55,.55);
   const auth=clamp(P.v/(d.vMin*1.25),.3,1);let{F,U,R}=P;
   [F,U]=rp(F,U,pi*d.pitch*auth*dt);[U,R]=rp(U,R,ri*d.roll*auth*dt);[F,R]=rp(F,R,yi*.3*auth*dt);
-  P.stall=P.v<d.vMin;if(P.stall&&pitch>-1.2)[F,U]=rp(F,U,-(.25+.9*(1-P.v/d.vMin))*dt);
-  const tr=-d.turn*Math.sin(bank)*dt*clamp(P.v/d.vMin,.5,1.3);F=rotA(F,L,tr);U=rotA(U,L,tr);R=rotA(R,L,tr);
-  const pt=Math.asin(clamp(dot(F,L),-1,1)),vT=d.vMin*.85+P.thr*(d.vMax-d.vMin*.85);
-  P.v+=((vT-P.v)*d.acc-.0098*Math.sin(pt))*dt;P.v=clamp(P.v,.008,d.vMax*1.25);
-  P.pos=add(P.pos,mul(F,P.v*dt));const L2=norm(P.pos),ax=cross(L,L2),sa=len(ax);
+  P.stall=P.v<d.vMin&&!P.grounded;if(P.stall&&pitch>-1.2)[F,U]=rp(F,U,-(.25+.9*(1-P.v/d.vMin))*dt);
+  if(!P.grounded){const tr=-d.turn*Math.sin(bank)*dt*clamp(P.v/d.vMin,.5,1.3);F=rotA(F,L,tr);U=rotA(U,L,tr);R=rotA(R,L,tr)}
+  const pt=Math.asin(clamp(dot(F,L),-1,1)),ceilF=P.alt>d.ceil?clamp(1-(P.alt-d.ceil)/1.5,0,1):1;
+  P.gearExt=clamp(P.gearExt+(P.gear?1:-1)*dt/2.4,0,1);
+  const vT=(P.grounded?P.thr*d.vMax*.7:(d.vMin*.85+P.thr*(d.vMax-d.vMin*.85))*ceilF)*(1-.08*P.gearExt*(d.fixedGear?0:1));
+  P.v+=((vT-P.v)*d.acc*(P.grounded?2:1)-.0098*Math.sin(pt))*dt;P.v=clamp(P.v,P.grounded?0:.008,d.vMax*1.25);
+  const g=S.ground??0;warpLimit(P,g);const w=P.grounded?1:S.warp;
+  P.pos=add(P.pos,mul(F,P.v*dt*w));const L2=norm(P.pos),ax=cross(L,L2),sa=len(ax);
   if(sa>1e-15){const k=mul(ax,1/sa),an=Math.asin(Math.min(1,sa));F=rotA(F,k,an);U=rotA(U,k,an);R=rotA(R,k,an)}
   F=norm(F);R=norm(cross(F,U));U=cross(R,F);P.F=F;P.U=U;P.R=R;P.alt=len(P.pos)-RE;P.vs=P.v*Math.sin(pt);
-  if(P.alt<(S.ground??0)+.004)crash()}
-function crash(){const P=S.plane;P.crashed=true;const[la,lo]=v2ll(P.pos);
-  $('#crashMsg').textContent=`You hit ${S.ground!==null&&S.ground>.02?'the ground or a building':'the ground'} ${nearText(la,lo)}.`;
-  const fl=$('#flash');fl.classList.remove('go');void fl.offsetWidth;fl.classList.add('go');setTimeout(()=>{if(S.plane.crashed)$('#crash').classList.remove('hidden')},900)}
-function respawn(){const P=S.plane,{hdg}=attitude(P),ll=v2ll(P.pos);placePlane(ll,(S.ground??0)+.35,hdg);$('#crash').classList.add('hidden')}
+  const wheels=d.fixedGear||P.gearExt>.95,gh=(wheels?d.gh:1.2)/1000;
+  if(!wheels&&!P.gearHint2&&P.alt-g<.6&&P.v<d.vMin*1.7&&P.vs<-.002){P.gearHint2=true;toast('Lower your landing gear','Tap Gear before you touch down')}
+  if(P.alt-g>1)P.gearHint2=false;
+  if(P.alt<g+gh){const[la,lo]=v2ll(P.pos),b2=attitude(P).bank;
+    if(!P.grounded){if(g-P.alt>.025)return crash('You hit a building or hillside');
+      if(g<.03&&sampleA(MASK,la,lo)<.15)return crash('You splashed into the water');
+      if(P.vs<-.02||P.v>d.vMax*.9)return crash('You crashed into the ground');if(P.vs<-.0055||Math.abs(b2)>.35)return crash('Hard landing');
+      if(!wheels)return crash('You landed without your landing gear.');
+      P.grounded=true;apOff();S.warp=1;updBtns();toast('Touchdown!','Throttle up and pull back to take off again')}
+    else if(g-P.alt>.025)return crash('You rolled into a building or hillside');
+    P.pos=mul(L2,RE+g+gh);P.alt=g+gh;
+    if(inp.p>.2&&P.v>d.vMin*1.05)P.grounded=false;
+    else{const Fh=norm(sub(P.F,mul(L2,dot(P.F,L2))));P.F=Fh;P.U=L2;P.R=cross(Fh,L2);P.vs=0}}
+  else if(P.alt>g+gh+.015)P.grounded=false}
+// time speed: ×4 needs 150 m of clearance, ×16 and ×64 need 1 km; it also eases off near your destination
+function warpLimit(P,g){if(S.warp<=1)return;const agl=P.alt-g;let lim=agl<.15?1:agl<1?4:64;
+  if(S.target){const dk=gcKm(P.pos,S.target.v);while(lim>1&&dk<P.v*lim*25)lim=WARPS[WARPS.indexOf(lim)-1]}
+  if(S.warp>lim){const near=S.target&&gcKm(P.pos,S.target.v)<P.v*S.warp*25;S.warp=lim;updBtns();toast(lim===1?'Time back to normal':`Time slowed to ×${lim}`,near?`Getting close to ${S.target.name}`:'Close to the ground')}}
+function cycleWarp(){const P=S.plane;if(!P||P.crashed)return;const agl=P.alt-(S.ground??0);if(P.grounded||agl<.15){toast('Take off first','Time speed-up works once you are 150 m (500 ft) above the ground');return}
+  let i=(WARPS.indexOf(S.warp)+1)%WARPS.length;if(WARPS[i]>4&&agl<1){toast('Climb higher for more speed',`×16 and ×64 work above 1 km (3,300 ft) over the ground`);i=0}S.warp=WARPS[i];updBtns();
+  if(S.warp>1)toast(`Time ×${S.warp}`,S.warp>=16?'The 3D city may look blurry while it catches up':'Tap again for faster')}
+function toggleGear(){const P=S.plane;if(!P||P.crashed)return;if(P.d.fixedGear){toast("This plane's wheels don't fold up");return}if(P.grounded&&P.gear){toast('Gear stays down on the ground');return}
+  P.gear=!P.gear;whir();toast(P.gear?'Landing gear down':'Landing gear up');updBtns()}
+function missions(){const P=S.plane,t=S.target;if(!t||t.reached||P.crashed)return;if(gcKm(P.pos,t.v)<2.2){t.reached=true;S.visited++;store.set('visited',S.visited);
+  toast(`You reached ${t.name}`,`Places reached: ${S.visited}${S.ap.on?' · circling overhead':''}`);if(S.warp>1){S.warp=1;updBtns()}}}
+function crash(msg){const P=S.plane;P.crashed=true;S.warp=1;S.ap.on=false;if(cam.mode==='cockpit')cam.mode='chase';cam.zoom=1;updBtns();const[la,lo]=v2ll(P.pos),g=S.ground??0;
+  const kind=/splash/.test(msg)?'water':P.alt-g>.05?'air':'land',sc=clamp(P.d.cam[0]/35,.55,2.4);explode(P.pos,kind,sc);FX.gY=-Math.max(0,P.alt-g)*1000;
+  {const L0=norm(P.pos);let bk=sub(mul(P.F,-1),mul(L0,dot(mul(P.F,-1),L0)));if(len(bk)<1e-6)bk=frameAt(P.pos).N;FX.back0=norm(bk);FX.ang=0;FX.D=(150+110*sc)/1000;FX.H=(40+35*sc)/1000;FX.sc=sc}
+  boom(kind==='water');try{navigator.vibrate&&navigator.vibrate([120,60,260])}catch(e){}
+  $('#crashMsg').textContent=msg.endsWith('.')?msg:`${msg} ${nearText(la,lo)}.`;
+  const fl=$('#flash');fl.classList.remove('go');void fl.offsetWidth;fl.classList.add('go');setTimeout(()=>{if(S.plane.crashed&&S.screen==='fly'&&!MAP.open)$('#crash').classList.remove('hidden')},3200)}
+function respawn(){cam.zoom=1;const P=S.plane,{hdg}=attitude(P),ll=v2ll(P.pos),g=S.ground??0;placePlane(ll,g+.4,hdg);S.ground=g;$('#crash').classList.add('hidden')}
+
+// ---------- autopilot ----------
+function fmtTime(s){const m=Math.round(s/60);return m<1?'under a minute':m<90?`${m} min`:`${(m/60).toFixed(m<600?1:0)} h`}
+function apOn(quiet){const P=S.plane;if(!P||P.crashed)return;if(P.grounded){toast('Take off first','Autopilot works in the air');return}const d=P.d,A=S.ap;A.on=true;A.alt=Math.max(P.alt,(S.ground??0)+.3);A.hdg=attitude(P).hdg;A.v=clamp(P.v,d.vMin*1.45,d.vMax*.95);
+  A.orbit=!!S.target&&gcKm(P.pos,S.target.v)<2.1;updBtns();if(quiet)return;
+  if(S.target){const dk=gcKm(P.pos,S.target.v);toast(`Autopilot: ${S.target.name}`,`${fmtDist(dk)} · about ${fmtTime(dk/Math.max(A.v,.01))}. Move the stick to take over.`)}
+  else toast('Autopilot on','Holding height and heading. Tap Map to pick a place.')}
+function apOff(why){if(!S.ap.on)return;S.ap.on=false;updBtns();if(why)toast('Autopilot off',why)}
+function setTarget(sel){S.target={name:sel.name,lat:sel.lat,lon:sel.lon,v:ll2v(sel.lat,sel.lon)};S.ap.orbit=false;tgtEnt()}
+function clearTarget(){S.target=null;if(S.ap.on)S.ap.hdg=attitude(S.plane).hdg;tgtEnt()}
+function updBtns(){$('#bAuto').classList.toggle('on',S.ap.on);const P=S.plane;if(P)$('#bGear').classList.toggle('on',P.gear&&!P.d.fixedGear);
+  $('#bWarp').textContent='×'+S.warp;$('#bWarp').classList.toggle('on',S.warp>1);$('#bCam').textContent={chase:'Chase',cockpit:'Cockpit',flyby:'Flyby'}[cam.mode]}
 
 // ---------- camera ----------
 function lookAt(t,up){cam.F=norm(sub(t,cam.pos));cam.R=norm(cross(cam.F,up));cam.U=cross(cam.R,cam.F)}
 function updCam(dt){const P=S.plane,d=P.d,L=norm(P.pos);if(!cam.sF){cam.sF=P.F;cam.sU=P.U}
   const k=1-Math.exp(-dt*5);cam.sF=norm(lerp3(cam.sF,P.F,k));cam.sU=norm(lerp3(cam.sU,P.U,k*.7));
-  if(S.screen==='menu'){const a=S.t*.12+2.5,back=rotA(mul(P.F,-1),L,a);cam.pos=add(P.pos,add(mul(back,d.cam[0]*1.25/1000),mul(L,d.cam[1]*.35/1000)));lookAt(P.pos,L);return}
-  if(S.cam==='cockpit'){const c=d.ck;cam.pos=add(P.pos,mul(add(add(mul(P.R,c[0]),mul(P.U,c[1])),mul(P.F,-c[2])),.001));cam.F=P.F;cam.U=P.U;cam.R=P.R;return}
+  if(S.screen==='menu'){const a=S.t*(matchMedia('(prefers-reduced-motion: reduce)').matches?.03:.12)+2.5,back=rotA(mul(P.F,-1),L,a),asp=vw/vh,side=asp>1&&vh<=520;
+    cam.pos=add(P.pos,add(mul(back,d.cam[0]*(asp<1||side?1.1:1.35)/1000),mul(L,d.cam[1]*.35/1000)));lookAt(P.pos,L);const Dd=len(sub(P.pos,cam.pos));
+    if(side)lookAt(add(P.pos,mul(cam.R,Dd*.5*CT.tX)),L);else lookAt(sub(P.pos,mul(cam.U,Dd*(asp<1?.4:.28)*CT.tY)),L);return}
+  if(P.crashed&&FX.O&&FX.back0){FX.ang+=dt*.16;const f=FX.f,dir=rotA(FX.back0,f.L,FX.ang),tgt=add(FX.O,add(mul(dir,FX.D),mul(f.L,FX.H)));
+    cam.pos=lerp3(cam.pos,tgt,1-Math.exp(-dt*2.2));lookAt(add(FX.O,mul(f.L,-FX.H*.28)),f.L);return}
+  if(cam.mode==='cockpit'){const c=d.ck;cam.pos=add(P.pos,mul(add(add(mul(P.R,c[0]),mul(P.U,c[1])),mul(P.F,-c[2])),.001));cam.F=P.F;cam.U=P.U;cam.R=P.R;return}
+  if(cam.mode==='flyby'){const D=d.cam[0]/1000;if(!cam.fly||dot(sub(P.pos,cam.fly),P.F)>D*2.5||gcKm(cam.fly,P.pos)>Math.max(3,P.v*S.warp*8)){
+      const ahead=Math.max(P.v*S.warp*3.5,D*3);cam.fly=add(P.pos,add(add(mul(P.F,ahead),mul(P.R,D*.7*(Math.random()<.5?-1:1))),mul(L,D*.25)));
+      const fl=(S.ground??0)+.006;if(len(cam.fly)-RE<fl)cam.fly=mul(norm(cam.fly),RE+fl)}
+    cam.pos=cam.fly;lookAt(P.pos,L);return}
   if(cam.orbT>0)cam.orbT-=dt;else{const q=1-Math.min(1,dt*1.6);cam.orbY*=q;cam.orbP*=q}
   const up=norm(lerp3(L,cam.sU,.55));let back=rotA(mul(cam.sF,-1),up,cam.orbY);const side=norm(cross(back,up));back=rotA(back,side,cam.orbP);
-  cam.pos=add(P.pos,add(mul(back,d.cam[0]/1000),mul(up,d.cam[1]/1000)));lookAt(add(P.pos,mul(P.F,d.cam[0]*.12/1000)),up)}
+  cam.pos=add(P.pos,add(mul(back,d.cam[0]*cam.zoom/1000),mul(up,d.cam[1]*cam.zoom/1000)));
+  const fl=(S.ground??0)+.003;if(len(cam.pos)-RE<fl)cam.pos=mul(norm(cam.pos),RE+fl);
+  lookAt(add(P.pos,mul(P.F,d.cam[0]*.12/1000)),up)}
 function camToCesium(){if(!V)return;const C=window.Cesium,[la,lo]=v2ll(cam.pos),h=(len(cam.pos)-RE)*1000,pos=C.Cartesian3.fromDegrees(lo,la,h),m=C.Transforms.eastNorthUpToFixedFrame(pos),f=frameAt(cam.pos);
   const ecef=v=>{const e=dot(v,f.E),n=dot(v,f.N),u=dot(v,f.L);return new C.Cartesian3(m[0]*e+m[4]*n+m[8]*u,m[1]*e+m[5]*n+m[9]*u,m[2]*e+m[6]*n+m[10]*u)};
   const fr=V.camera.frustum;fr.near=1;fr.fov=vw>vh?2*Math.atan(CT.tY*vw/vh):CT.fy;
   V.camera.setView({destination:pos,orientation:{direction:ecef(cam.F),up:ecef(cam.U)}})}
-function sampleGround(dt){if(!V||!S.plane||(gsT-=dt)>0)return;gsT=.2;try{const C=window.Cesium,[la,lo]=v2ll(S.plane.pos);
-  if(V.scene.sampleHeightSupported){const h=V.scene.sampleHeight(C.Cartographic.fromDegrees(lo,la));if(h!==undefined&&isFinite(h))S.ground=h/1000}}catch(e){}}
+function heightAt(la,lo){const C=window.Cesium,ex=[CL,...(MAP.ents?[MAP.ents.tgt]:[])].filter(Boolean);
+  const h=V.scene.sampleHeight(C.Cartographic.fromDegrees(lo,la),ex);return h!==undefined&&isFinite(h)?h/1000:null}
+function sampleGround(dt){if(!V||!S.plane||(gsT-=dt)>0)return;const P0=S.plane,agl=P0.alt-(S.ground??0);gsT=P0.grounded||agl<.15?.05:S.warp>1?.1:.2;try{if(!V.scene.sampleHeightSupported)return;const P=S.plane;gsOdd=!gsOdd;
+  if(gsOdd&&S.ap.on&&!S.hold){const L=norm(P.pos);let hz=sub(P.F,mul(L,dot(P.F,L)));if(len(hz)>1e-6){const[a,b]=v2ll(add(P.pos,mul(norm(hz),2.5)));S.gAhead=heightAt(a,b)}return}
+  const[la,lo]=v2ll(P.pos),g=heightAt(la,lo);if(g!==null){if(S.ground===null&&!P.grounded&&P.alt<g+.1)setAlt(g+.4);S.ground=g;S.holdN++}}catch(e){}}
+
+// ---------- 3D world look ----------
+const GRADE_FS=`uniform sampler2D colorTexture;uniform float sat;uniform float con;uniform float vig;in vec2 v_textureCoordinates;
+void main(){vec4 c=texture(colorTexture,v_textureCoordinates);vec3 col=c.rgb;float l=dot(col,vec3(0.2126,0.7152,0.0722));col=mix(vec3(l),col,sat);
+col=(col-0.5)*con+0.5;vec2 d=v_textureCoordinates-0.5;col*=1.0-vig*dot(d,d);out_FragColor=vec4(clamp(col,0.0,1.0),c.a);}`;
+function applyQuality(){if(!V)return;const q=S.q,dp=devicePixelRatio||1;try{
+  const pr=q==='fast'?1:q==='balanced'?(coarse?1.5:Math.min(dp,2)):Math.min(dp,coarse?2:2.5);
+  V.useBrowserRecommendedResolution=false;V.resolutionScale=pr/dp;
+  if(TS)TS.maximumScreenSpaceError=q==='fast'?24:q==='balanced'?(coarse?12:10):(coarse?8:6);
+  const pp=V.scene.postProcessStages;pp.fxaa.enabled=true;try{V.scene.msaaSamples=q==='sharp'&&!coarse?4:1}catch(e){}
+  if(!GRS&&!S.noExtras){GRS=pp.add(new Cesium.PostProcessStage({fragmentShader:GRADE_FS,uniforms:{sat:1.14,con:1.07,vig:.38}}))}
+  if(GRS)GRS.enabled=q!=='fast';if(CL)CL.show=q!=='fast'&&CLN[S.wx]>0}catch(e){console.warn(e)}}
+function makeClouds(lat,lon,base){if(!V||S.noExtras)return;const key=lat.toFixed(2)+','+lon.toFixed(2)+S.wx;if(key===clKey&&CL)return;clKey=key;try{const C=window.Cesium;
+  if(!CL){CL=V.scene.primitives.add(new C.CloudCollection({noiseDetail:16}))}CL.removeAll();const r=rng(Math.round((lat+90)*1e3)*7919+Math.round((lon+180)*1e3)),b=Math.max(1.5,base+.7)*1000;
+  for(let i=0;i<CLN[S.wx];i++){const a=r()*6.2832,dk=3+r()*42,la=lat+dk*Math.cos(a)/111.2,lo=lon+dk*Math.sin(a)/(111.2*Math.max(Math.cos(lat*D2R),.05)),w=800+r()*1800;
+    CL.add({position:C.Cartesian3.fromDegrees(lo,la,b+r()*1500),scale:new C.Cartesian2(w,w*(.24+r()*.14)),slice:.3+r()*.22,brightness:1})}
+  CL.show=S.q!=='fast'&&CLN[S.wx]>0}catch(e){console.warn(e)}}
+function dropExtras(){S.noExtras=true;try{if(GRS){V.scene.postProcessStages.remove(GRS);GRS=null}if(CL){V.scene.primitives.remove(CL);CL=null}V.scene.msaaSamples=1}catch(e){}}
 
 // ---------- plane overlay rendering ----------
-function updEnv(){if((ENV.k-=1/60)>0)return;ENV.k=.3;const P=S.plane,L=norm(P.pos),mus=dot(L,S.sun);
+function updEnv(){const P=S.plane,L=norm(P.pos),mus=dot(L,S.sun);ENV.exp+=(mix(.46,1.2,sstep(.06,-.16,mus))-ENV.exp)*.05;if((ENV.k-=1/60)>0)return;ENV.k=.3;
   ENV.sunC=sunAtj(P.pos,S.sun);ENV.zen=scatterj(P.pos,L,S.sun);let hd=sub(S.sun,mul(L,dot(S.sun,L)));hd=len(hd)<1e-4?frameAt(P.pos).N:norm(hd);
   ENV.hor=mul(add(scatterj(P.pos,norm(add(hd,mul(L,.05))),S.sun),scatterj(P.pos,norm(add(mul(hd,-1),mul(L,.05))),S.sun)),.5);
-  const si=skyIrrj(mus);ENV.gnd=add(mul(add(mul(sunAtj(mul(L,RE+.01),S.sun),.08*Math.max(mus,0)),mul(si,.08)),1/Math.PI),mul(ENV.hor,.25))}
+  const si=skyIrrj(mus);ENV.gnd=add(mul(add(mul(sunAtj(mul(L,RE+.01),S.sun),.08*Math.max(mus,0)),mul(si,.08)),1/Math.PI),mul(ENV.hor,.25));ENV.night=sstep(.05,-.12,mus);
+  ENV.trail=add(mul(ENV.sunC,Math.max(mus,0)*.6/Math.PI),mul(si,1/Math.PI)).map(v=>Math.pow(aces(v*.95*ENV.exp),1/2.2))}
+// contrails from jets above 7.6 km
+const emitW=e=>{const P=S.plane;return add(P.pos,mul(add(add(mul(P.R,e[0]),mul(P.U,e[1])),mul(P.F,-e[2])),.001))};
+function trailsUpdate(dt){const P=S.plane,m=S.model;if(!m)return;if(TR.pts.length!==m.emit.length)TR.pts=m.emit.map(()=>[]);
+  for(const a of TR.pts)while(a.length&&S.t-a[0].t>14)a.shift();if(S.warp!==1)TR.pts.forEach(a=>a.length=0);
+  TR.acc+=dt;if(P.d.jet&&P.alt>7.6&&S.warp===1&&!P.crashed&&TR.acc>.07){TR.acc=0;m.emit.forEach((e,i)=>TR.pts[i].push({p:emitW(e),t:S.t}))}}
+function trailGeo(){const arr=[],draws=[];for(const pts of TR.pts){const n=pts.length;if(n<2)continue;const st=arr.length/4;
+  for(let j=0;j<n;j++){const age=S.t-pts[j].t,p=mul(sub(pts[j].p,cam.pos),1000),pa=mul(sub(pts[Math.max(0,j-1)].p,cam.pos),1000),pb=mul(sub(pts[Math.min(n-1,j+1)].p,cam.pos),1000);
+    let sd=cross(sub(pb,pa),p);const sl=len(sd);sd=sl>1e-9?mul(sd,1/sl):[0,1,0];const w=Math.min(1.5+age*5,45),al=.5*Math.pow(1-age/14,1.5)*clamp((age-.15)/.6,0,1);
+    const a=add(p,mul(sd,w)),b=sub(p,mul(sd,w));arr.push(a[0],a[1],a[2],al,b[0],b[1],b[2],al)}
+  draws.push([st,n*2])}return{data:new Float32Array(arr),draws}}
+function initGL(){PP=mkProg(VS_PLANE,FS_PLANE,['aP','aN','aC','aM']);PT=mkProg(VS_TRAIL,FS_TRAIL,['aP','aA']);
+  trailVao=gl.createVertexArray();gl.bindVertexArray(trailVao);trailBuf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,trailBuf);
+  gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,3,gl.FLOAT,false,16,0);gl.enableVertexAttribArray(1);gl.vertexAttribPointer(1,1,gl.FLOAT,false,16,12);gl.bindVertexArray(null);initFx()}
 function render(){const w=cv.width,h=cv.height,as=w/h,fy=Math.min(1.6,Math.max(.95,2*Math.atan(Math.tan(.55)/as))),tY=Math.tan(fy/2);CT={tX:tY*as,tY,fy};
   gl.bindFramebuffer(gl.FRAMEBUFFER,null);gl.viewport(0,0,w,h);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-  const P=S.plane,m=S.model;if(!m||P.crashed||(S.cam==='cockpit'&&S.screen==='fly'))return;
-  gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.useProgram(PP.p);const q=PP.u,M=modelM(P.R,P.U,P.F,mul(sub(P.pos,cam.pos),1000)),lv=m.liv;
-  gl.uniformMatrix4fv(q.uVP,false,m4mul(persp(fy,as,.3,9000),viewM(cam.R,cam.U,cam.F)));gl.uniform3fv(q.uSun,S.sun);gl.uniform3fv(q.uSunC,ENV.sunC);gl.uniform3fv(q.uUp,norm(P.pos));
+  if(MAP.open||!S.plane)return;const VP=m4mul(persp(fy,as,.3,9000),viewM(cam.R,cam.U,cam.F));
+  const tg=trailGeo();if(tg.draws.length){gl.useProgram(PT.p);gl.uniformMatrix4fv(PT.u.uVP,false,VP);gl.uniform3fv(PT.u.uCol,ENV.trail);gl.enable(gl.BLEND);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindVertexArray(trailVao);gl.bindBuffer(gl.ARRAY_BUFFER,trailBuf);gl.bufferData(gl.ARRAY_BUFFER,tg.data,gl.DYNAMIC_DRAW);for(const[s0,n]of tg.draws)gl.drawArrays(gl.TRIANGLE_STRIP,s0,n);gl.disable(gl.BLEND)}
+  drawFx(fy,as,false);
+  const P=S.plane,m=S.model;if(!m||P.crashed||(cam.mode==='cockpit'&&S.screen==='fly'))return;
+  gl.clear(gl.DEPTH_BUFFER_BIT);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.depthMask(true);gl.disable(gl.BLEND);gl.useProgram(PP.p);const q=PP.u,M=modelM(P.R,P.U,P.F,mul(sub(P.pos,cam.pos),1000)),lv=m.liv;
+  gl.uniformMatrix4fv(q.uVP,false,VP);gl.uniform3fv(q.uSun,S.sun);gl.uniform3fv(q.uSunC,ENV.sunC);gl.uniform3fv(q.uUp,norm(P.pos));
   gl.uniform3fv(q.uZen,ENV.zen);gl.uniform3fv(q.uHor,ENV.hor);gl.uniform3fv(q.uGnd,ENV.gnd);gl.uniform1f(q.uExp,ENV.exp);gl.uniform1f(q.uTime,S.t);
-  gl.uniform1f(q.uFogD,1e9);gl.uniform1f(q.uFar,1e9);gl.uniform3fv(q.uFogC,[0,0,0]);gl.uniform1f(q.uNight,0);const sp=S.t%1.3;gl.uniform1f(q.uStrobe,(sp<.05||(sp>.18&&sp<.23))?1:0);
+  gl.uniform1f(q.uFogD,1e9);gl.uniform1f(q.uFar,1e9);gl.uniform3fv(q.uFogC,[0,0,0]);gl.uniform1f(q.uNight,ENV.night);const sp=S.t%1.3;gl.uniform1f(q.uStrobe,(sp<.05||(sp>.18&&sp<.23))?1:0);
   gl.uniform1f(q.uAB,P.d.ab?sstep(.82,1,P.thr)*(1+.12*Math.sin(S.t*45)):0);gl.uniform1f(q.uRpm,.45+.55*P.thr);
   gl.uniform4f(q.uWin,lv.win[0],lv.win[1],lv.win[2],lv.win[3]);gl.uniform2f(q.uWinZ,lv.winz[0],lv.winz[1]);gl.uniform4fv(q.uCock,lv.cock);gl.uniform4fv(q.uBelly,lv.belly);gl.uniform4fv(q.uStripe,lv.stripe);gl.uniform1f(q.uStripeW,lv.sw);
   gl.uniformMatrix4fv(q.uM,false,M);gl.bindVertexArray(m.body.vao);gl.drawElements(gl.TRIANGLES,m.body.count,gl.UNSIGNED_INT,0);
+  if(m.gear&&P.gearExt>.02){gl.uniformMatrix4fv(q.uM,false,m4mul(M,trY((1-P.gearExt)*m.gear.len)));gl.bindVertexArray(m.gear.mesh.vao);gl.drawElements(gl.TRIANGLES,m.gear.mesh.count,gl.UNSIGNED_INT,0);gl.uniformMatrix4fv(q.uM,false,M)}
   const ang=S.t*(6+28*P.thr);for(const pr of m.props){gl.uniformMatrix4fv(q.uM,false,m4mul(M,trZ(pr.pos,ang)));gl.bindVertexArray(pr.blades.vao);gl.drawElements(gl.TRIANGLES,pr.blades.count,gl.UNSIGNED_INT,0)}
   gl.enable(gl.BLEND);gl.depthMask(false);gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA);
   for(const pr of m.props){gl.uniformMatrix4fv(q.uM,false,m4mul(M,trZ(pr.pos,0)));gl.bindVertexArray(pr.disc.vao);gl.drawElements(gl.TRIANGLES,pr.disc.count,gl.UNSIGNED_INT,0)}
   if(m.ab&&P.d.ab&&P.thr>.82){gl.blendFunc(gl.ONE,gl.ONE);gl.uniformMatrix4fv(q.uM,false,M);gl.bindVertexArray(m.ab.vao);gl.drawElements(gl.TRIANGLES,m.ab.count,gl.UNSIGNED_INT,0)}
   gl.depthMask(true);gl.disable(gl.BLEND);gl.bindVertexArray(null)}
 function resize(){vw=innerWidth;vh=innerHeight;dpr=Math.min(devicePixelRatio||1,2);cv.width=Math.round(vw*dpr);cv.height=Math.round(vh*dpr);const hu=$('#hud');hu.width=Math.round(vw*dpr);hu.height=Math.round(vh*dpr);
-  const mc=$('#miniC'),ms=mc.clientWidth||150;mc.width=mc.height=Math.round(ms*dpr)}
+  const mc=$('#miniC'),ms=mc.clientWidth||150;mc.width=mc.height=Math.round(ms*dpr);if(MAP.open&&!V){sizeMap();drawMap()}}
 
 // ---------- HUD ----------
 const hud=$('#hud'),hx=hud.getContext('2d');
 const fmtN=n=>(Math.round(n)||0).toLocaleString('en-US'),fmtDist=km=>S.units==='imp'?`${fmtN(km*.621371)} mi`:`${fmtN(km)} km`;
 const compass=a=>['N','NE','E','SE','S','SW','W','NW'][((Math.round(a/D2R/45)%8)+8)%8];
-function nearText(la,lo){const p=ll2v(la,lo);let b=CITIES[0],bd=1e9;for(const c of CITIES){const d=gcKm(p,ll2v(c[1],c[2]));if(d<bd){bd=d;b=c}}return bd<20?`over ${b[0]}`:`${fmtDist(bd)} ${compass(bearing(ll2v(b[1],b[2]),p))} of ${b[0]}`}
+function nearest(la,lo){const p=ll2v(la,lo);let b=CITIES[0],bd=1e9;for(const c of CITIES){const d=gcKm(p,ll2v(c[1],c[2]));if(d<bd){bd=d;b=c}}return{c:b,d:bd,p}}
+function nearText(la,lo){const{c:b,d:bd,p}=nearest(la,lo);return bd<20?`over ${b[0]}`:`${fmtDist(bd)} ${compass(bearing(ll2v(b[1],b[2]),p))} of ${b[0]}`}
+function placeName(la,lo){const{c:b,d:bd,p}=nearest(la,lo);if(bd<20)return b[0];if(bd<1500)return`${fmtDist(bd)} ${compass(bearing(ll2v(b[1],b[2]),p))} of ${b[0]}`;
+  return`${Math.abs(la).toFixed(1)}°${la>=0?'N':'S'}, ${Math.abs(lo).toFixed(1)}°${lo>=0?'E':'W'}`}
 function proj(wp){const r=sub(wp,cam.pos),z=dot(r,cam.F);return{x:(dot(r,cam.R)/(z*CT.tX)*.5+.5)*vw,y:(.5-dot(r,cam.U)/(z*CT.tY)*.5)*vh,front:z>0}}
-function drawHud(){hx.setTransform(dpr,0,0,dpr,0,0);hx.clearRect(0,0,vw,vh);if(S.screen!=='fly'||S.cam!=='cockpit'||S.plane.crashed)return;
+function drawHud(){hx.setTransform(dpr,0,0,dpr,0,0);hx.clearRect(0,0,vw,vh);if(S.screen!=='fly'||cam.mode!=='cockpit'||S.plane.crashed)return;
   const P=S.plane,L=norm(P.pos);let Hh=sub(P.F,mul(L,dot(P.F,L)));if(len(Hh)<1e-6)return;Hh=norm(Hh);const Rh=cross(Hh,L);
   hx.strokeStyle='rgba(183,255,210,.9)';hx.fillStyle='rgba(183,255,210,.95)';hx.lineWidth=1.6;hx.font='600 12px "Barlow Semi Condensed",sans-serif';hx.textBaseline='middle';
   for(let a=-30;a<=30;a+=5){const d=add(mul(Hh,Math.cos(a*D2R)),mul(L,Math.sin(a*D2R))),p0=proj(add(cam.pos,d)),p1=proj(add(cam.pos,add(d,mul(Rh,.05))));if(!p0.front||!p1.front)continue;
@@ -1052,84 +1311,242 @@ function drawHud(){hx.setTransform(dpr,0,0,dpr,0,0);hx.clearRect(0,0,vw,vh);if(S
     if(a){hx.setLineDash([]);hx.fillText(String(Math.abs(a)),p0.x+ux*(half+6)-4,p0.y+uy*(half+6))}}
   hx.setLineDash([]);const cx=vw/2,cy=vh/2;hx.lineWidth=2;hx.beginPath();hx.moveTo(cx-26,cy);hx.lineTo(cx-10,cy);hx.lineTo(cx-5,cy+7);hx.lineTo(cx,cy);hx.lineTo(cx+5,cy+7);hx.lineTo(cx+10,cy);hx.lineTo(cx+26,cy);hx.stroke()}
 let domT=0,locT=0,miniT=0;
-function updHudDom(dt){if(S.screen!=='fly'||(domT-=dt)>0)return;domT=.1;const P=S.plane,imp=S.units==='imp',{pitch,hdg}=attitude(P);
+function updHudDom(dt){if(S.screen!=='fly'||(domT-=dt)>0)return;domT=.1;const P=S.plane,imp=S.units==='imp',{hdg}=attitude(P);
   $('#iSpd').textContent=fmtN(imp?P.v*1943.84:P.v*3600);$('#uSpd').textContent=imp?'kt':'km/h';
   $('#iAlt').textContent=fmtN(imp?Math.round(P.alt*328.084)*10:Math.round(P.alt*200)*5);$('#uAlt').textContent=imp?'ft':'m';
   const agl=P.alt-(S.ground??0);$('#iAgl').textContent=S.ground===null?'—':fmtN(imp?agl*3280.84:agl*1000);$('#uAgl').textContent=imp?'ft':'m';
   $('#iHdg').textContent=String(Math.round(((hdg/D2R)+360)%360)).padStart(3,'0')+'°';
-  let w='';if(P.stall)w='Stall';else if(S.ground!==null&&agl<.12&&P.vs<-.004)w='Pull up';$('#warn').textContent=w;
+  $('#iVs').textContent=imp?fmtN(Math.round((P.vs||0)*196850/50)*50):((P.vs||0)*1000).toFixed(1).replace('-0.0','0.0');$('#uVs').textContent=imp?'ft/min':'m/s';
+  let w='';if(S.hold)w='Loading the area…';else if(S.paused)w='';else if(P.stall)w='Stall';else if(S.ground!==null&&agl<.12&&P.vs<-.004&&!P.crashed&&!(P.gear&&P.vs>-.006&&P.v<P.d.vMin*1.8))w='Pull up';$('#warn').textContent=w;$('#warn').classList.toggle('soft',!!S.hold);
+  if(S.target){const dk=gcKm(P.pos,S.target.v),rel=bearing(P.pos,S.target.v)-hdg;$('#dName').textContent=S.target.name;
+    $('#dInfo').textContent=`${fmtDist(dk)}${S.ap.on?' · autopilot':''} · ${fmtTime(dk/Math.max(P.v,.01))}`;$('#dArr').style.transform=`rotate(${(rel/D2R).toFixed(1)}deg)`}
+  else{$('#dName').textContent=S.ap.on?'Autopilot':'Free flight';$('#dInfo').textContent=S.ap.on?'Holding height and heading':'Tap to pick a place on the map';$('#dArr').style.transform='none'}
+  if(S.ap.on)syncThr();
   if((locT-=.1)<=0){locT=1;const[la,lo]=v2ll(P.pos);$('#loc').textContent=nearText(la,lo).replace(/^over /,'Over ')}}
-function drawMini(){const c=$('#miniC'),x=c.getContext('2d'),Z=c.width,P=S.plane,[lat,lon]=v2ll(P.pos),{hdg}=attitude(P);
+
+// ---------- minimap ----------
+const MZ=[15,50,200,800];let miniZ=clamp(store.get('miniZ',1)|0,0,MZ.length-1);
+function drawMini(){const c=$('#miniC'),x=c.getContext('2d'),Z=c.width,P=S.plane,[lat,lon]=v2ll(P.pos),{hdg}=attitude(P),d=dpr;
   x.setTransform(1,0,0,1,0,0);x.clearRect(0,0,Z,Z);x.save();x.beginPath();x.arc(Z/2,Z/2,Z/2-1,0,7);x.clip();x.fillStyle='#0b203e';x.fillRect(0,0,Z,Z);
-  const rK=40,pk=(Z/2)/rK,kLa=111.2,kLo=111.2*Math.max(Math.cos(lat*D2R),.02),sx=W/360,sy=H/180;x.translate(Z/2,Z/2);x.rotate(-hdg);x.scale(kLo*pk/sx,kLa*pk/sy);
+  const rK=MZ[miniZ],pk=(Z/2)/rK,kLa=111.2,kLo=111.2*Math.max(Math.cos(lat*D2R),.02),sx=W/360,sy=H/180;
+  x.translate(Z/2,Z/2);x.rotate(-hdg);x.scale(kLo*pk/sx,kLa*pk/sy);x.imageSmoothingEnabled=true;x.imageSmoothingQuality='high';
   const pmx=(lon+180)*sx,pmy=(90-lat)*sy,cw=Math.min(W,rK*3/kLo*sx),ch=rK*3/kLa*sy;
   for(const k of[-1,0,1]){const a=Math.max(pmx-cw/2,k*W),b=Math.min(pmx+cw/2,k*W+W),ya=Math.max(pmy-ch/2,0),yb=Math.min(pmy+ch/2,H);if(b>a&&yb>ya)x.drawImage(MAPC,a-k*W,ya,b-a,yb-ya,a-pmx,ya-pmy,b-a,yb-ya)}
-  x.setTransform(1,0,0,1,0,0);const c2=Math.cos(-hdg),s2=Math.sin(-hdg);x.font=`600 ${11*dpr}px "Barlow Semi Condensed",sans-serif`;x.textBaseline='middle';
-  for(const ci of CITIES){let dl=((ci[2]-lon+540)%360)-180;const X0=dl*kLo*pk,Y0=-(ci[1]-lat)*kLa*pk,X=Z/2+X0*c2-Y0*s2,Y=Z/2+X0*s2+Y0*c2;if(Math.hypot(X-Z/2,Y-Z/2)>Z/2-4)continue;
-    x.fillStyle='#fff';x.beginPath();x.arc(X,Y,2.2*dpr,0,7);x.fill();x.shadowColor='#000';x.shadowBlur=3*dpr;x.fillText(ci[0],X+4*dpr,Y);x.shadowBlur=0}
-  x.restore();x.save();x.translate(Z/2,Z/2);x.fillStyle='#fff';x.strokeStyle='#0b203e';x.lineWidth=1.5*dpr;const s=dpr;x.beginPath();x.moveTo(0,-9*s);x.lineTo(7*s,8*s);x.lineTo(0,4*s);x.lineTo(-7*s,8*s);x.closePath();x.fill();x.stroke();x.restore();
-  const nx=Z/2+Math.sin(-hdg)*(Z/2-10*dpr),ny=Z/2-Math.cos(-hdg)*(Z/2-10*dpr);x.font=`700 ${12*dpr}px "Barlow Semi Condensed",sans-serif`;x.textAlign='center';x.fillStyle='rgba(10,16,24,.75)';x.beginPath();x.arc(nx,ny,8*dpr,0,7);x.fill();x.fillStyle='#fff';x.fillText('N',nx,ny+.5);x.textAlign='start'}
+  x.setTransform(1,0,0,1,0,0);const c2=Math.cos(-hdg),s2=Math.sin(-hdg);
+  const to=(la,lo)=>{const dl=((lo-lon+540)%360)-180,X0=dl*kLo*pk,Y0=-(la-lat)*kLa*pk;return[Z/2+X0*c2-Y0*s2,Z/2+X0*s2+Y0*c2]};
+  x.strokeStyle='rgba(255,255,255,.14)';x.lineWidth=1*d;x.beginPath();x.arc(Z/2,Z/2,Z/4,0,7);x.stroke();
+  if(S.trail.length>1){x.strokeStyle='rgba(255,255,255,.6)';x.lineWidth=1.6*d;x.beginPath();S.trail.forEach(([a,b],i)=>{const[X,Y]=to(a,b);i?x.lineTo(X,Y):x.moveTo(X,Y)});const[X,Y]=to(lat,lon);x.lineTo(X,Y);x.stroke()}
+  x.font=`600 ${11*d}px "Barlow Semi Condensed",sans-serif`;x.textBaseline='middle';x.shadowColor='#000';
+  const dot2=(X,Y,col,r)=>{x.fillStyle=col;x.beginPath();x.arc(X,Y,r*d,0,7);x.fill()};
+  for(const ci of CITIES){const[X,Y]=to(ci[1],ci[2]);if(Math.hypot(X-Z/2,Y-Z/2)>Z/2-4)continue;dot2(X,Y,'#fff',2.2);if(rK<=200||ci[3]>=.9){x.shadowBlur=3*d;x.fillStyle='#fff';x.fillText(ci[0],X+4*d,Y);x.shadowBlur=0}}
+  for(const s of SPOTS){const[X,Y]=to(s[1],s[2]);if(Math.hypot(X-Z/2,Y-Z/2)>Z/2-4)continue;dot2(X,Y,'#ffcc4d',3)}
+  if(S.target){const dk=gcKm(P.pos,S.target.v),rel=bearing(P.pos,S.target.v)-hdg,rr=Math.min(dk*pk,Z/2-7*d),X=Z/2+Math.sin(rel)*rr,Y=Z/2-Math.cos(rel)*rr;
+    x.strokeStyle='#ff4fb0';x.lineWidth=2.5*d;x.setLineDash([5*d,4*d]);x.beginPath();x.moveTo(Z/2,Z/2);x.lineTo(X,Y);x.stroke();x.setLineDash([]);dot2(X,Y,'#ff4fb0',4.5)}
+  x.restore();
+  x.save();x.translate(Z/2,Z/2);x.fillStyle=S.ap.on?'#ff4fb0':'#fff';x.strokeStyle='#0b203e';x.lineWidth=1.5*d;x.beginPath();x.moveTo(0,-9*d);x.lineTo(7*d,8*d);x.lineTo(0,4*d);x.lineTo(-7*d,8*d);x.closePath();x.fill();x.stroke();x.restore();
+  const nx=Z/2+Math.sin(-hdg)*(Z/2-10*d),ny=Z/2-Math.cos(-hdg)*(Z/2-10*d);x.font=`700 ${12*d}px "Barlow Semi Condensed",sans-serif`;x.textAlign='center';x.fillStyle='rgba(10,16,24,.75)';x.beginPath();x.arc(nx,ny,8*d,0,7);x.fill();x.fillStyle='#fff';x.fillText('N',nx,ny+.5);
+  x.font=`600 ${10*d}px "Barlow Semi Condensed",sans-serif`;x.fillStyle='rgba(255,255,255,.8)';x.fillText(fmtDist(rK/2),Z/2,Z/2+Z/4-7*d);x.textAlign='start'}
+function hideToast(){clearTimeout(toastT);$('#toast').classList.remove('on')}
 let toastT=0;function toast(a,b){const t=$('#toast');t.innerHTML='';const s1=document.createElement('b');s1.textContent=a;t.appendChild(s1);if(b){const s2=document.createElement('span');s2.textContent=b;t.appendChild(s2)}t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),4500)}
 function syncThr(){const t=S.plane?S.plane.thr:0;$('#thrFill').style.height=(t*100)+'%';$('#thrKnob').style.bottom=`calc(${t*100}% - 4px)`;$('#thrTxt').textContent=Math.round(t*100)+'%'}
 
+// ---------- world map: the real Google globe when the 3D map is loaded, a drawn map otherwise ----------
+const MAP={open:false,mode:'fly',sel:null,cx:0,cy:20,z:1.4,ents:null,h:null};
+const mapC=$('#mapC'),mx2=mapC.getContext('2d');
+const vis=(s,on)=>$(s).classList.toggle('hidden',!on);
+function mapLL(){if(MAP.mode==='fly')return v2ll(S.plane.pos);const s=spotInfo(S.spot);return[s.lat,s.lon]}
+function openMap(mode){if(MAP.open||!S.plane)return;hideToast();MAP.mode=mode;MAP.open=true;MAP.sel=null;inp.keys.clear();inp.stick=[0,0];$('#knob').style.transform='';$('#crash').classList.add('hidden');
+  document.body.classList.toggle('gmap',!!V);showScreen('map');
+  if(V){try{openGlobe()}catch(e){console.error(e)}}else{const ll=mapLL();MAP.cx=ll[1];MAP.cy=ll[0];MAP.z=mode==='fly'?3:1.4;sizeMap();clampMap();drawMap()}
+  updMapBar()}
+function closeMap(to){if(!MAP.open)return;MAP.open=false;if(V){try{closeGlobe()}catch(e){console.error(e)}}document.body.classList.remove('gmap');
+  showScreen(to||(MAP.mode==='fly'?'fly':'menu'));cam.sF=null;if(S.screen==='fly'&&S.plane.crashed)$('#crash').classList.remove('hidden')}
+const ccol=s=>Cesium.Color.fromCssColorString(s);
+function mkLabel(t,off){const C=Cesium;return{text:t,font:'600 16px "Barlow Semi Condensed", sans-serif',fillColor:C.Color.WHITE,outlineColor:ccol('#05090f'),outlineWidth:4,style:C.LabelStyle.FILL_AND_OUTLINE,pixelOffset:new C.Cartesian2(0,off),disableDepthTestDistance:Number.POSITIVE_INFINITY}}
+function mkPoint(col,sz){return{pixelSize:sz,color:ccol(col),outlineColor:ccol('#05090f'),outlineWidth:2.5,disableDepthTestDistance:Number.POSITIVE_INFINITY}}
+function ensureEnts(){if(MAP.ents||!V)return;const C=Cesium,E=V.entities,o=C.Cartesian3.fromDegrees(0,0,0);
+  MAP.ents={me:E.add({position:o,point:mkPoint('#8fd3ff',16),label:mkLabel('You',-20),show:false}),sel:E.add({position:o,point:mkPoint('#ffcc4d',18),label:mkLabel('',-22),show:false}),
+    tgt:E.add({position:o,point:mkPoint('#ff4fb0',14),label:mkLabel('',-20),show:false}),
+    route:E.add({polyline:{positions:[o,C.Cartesian3.fromDegrees(1,1,0)],width:3,material:ccol('#ff4fb0')},show:false}),
+    spots:SPOTS.map((s,i)=>{const e=E.add({position:C.Cartesian3.fromDegrees(s[2],s[1],0),point:mkPoint('#ffffff',11),label:mkLabel(s[0],-17),show:false});e._spot=i;return e})}}
+function tgtEnt(){if(!V)return;try{ensureEnts();const C=Cesium,M=MAP.ents,t=S.target;M.tgt.show=!!t;if(t){M.tgt.position=C.Cartesian3.fromDegrees(t.lon,t.lat,0);M.tgt.label.text=t.name}updRoute()}catch(e){console.warn(e)}}
+function updRoute(){const C=Cesium,M=MAP.ents,t=S.target,on=MAP.open&&MAP.mode==='fly'&&!!t;M.route.show=on;if(!on)return;
+  const a=norm(S.plane.pos),b=t.v,om=Math.acos(clamp(dot(a,b),-1,1)),sn=Math.sin(om)||1,n=Math.max(2,Math.min(96,Math.ceil(om*400))),pts=[];
+  for(let i=0;i<=n;i++){const k=i/n,[la,lo]=v2ll(om<1e-6?a:add(mul(a,Math.sin((1-k)*om)/sn),mul(b,Math.sin(k*om)/sn)));pts.push(C.Cartesian3.fromDegrees(lo,la,4000))}M.route.polyline.positions=pts}
+function openGlobe(){const C=Cesium,ll=mapLL(),ss=V.scene.screenSpaceCameraController;ensureEnts();
+  ss.enableInputs=true;ss.enableTilt=false;ss.enableLook=false;ss.minimumZoomDistance=800;ss.maximumZoomDistance=4e7;
+  const fr=V.camera.frustum;fr.fov=C.Math.toRadians(55);fr.near=1;
+  V.camera.flyTo({destination:C.Cartesian3.fromDegrees(ll[1],ll[0],MAP.mode==='fly'?600e3:3000e3),orientation:{heading:0,pitch:-C.Math.PI_OVER_TWO,roll:0},duration:1.5});
+  const M=MAP.ents;M.me.show=true;M.me.label.text=MAP.mode==='fly'?'You':'Start';M.me.position=C.Cartesian3.fromDegrees(ll[1],ll[0],MAP.mode==='fly'?S.plane.alt*1000:0);
+  M.spots.forEach(e=>e.show=true);M.sel.show=false;updRoute();
+  if(!MAP.h){MAP.h=new C.ScreenSpaceEventHandler(V.scene.canvas);MAP.h.setInputAction(e=>{try{globeTap(e.position)}catch(err){console.error(err)}},C.ScreenSpaceEventType.LEFT_CLICK)}}
+function closeGlobe(){try{V.camera.cancelFlight()}catch(e){}V.scene.screenSpaceCameraController.enableInputs=false;const M=MAP.ents;if(!M)return;M.me.show=false;M.sel.show=false;M.route.show=false;M.spots.forEach(e=>e.show=false)}
+function globeTap(pos){if(!MAP.open||!pos)return;const C=Cesium;const pk=V.scene.pick(pos);
+  if(pk&&pk.id&&pk.id._spot!==undefined){const s=SPOTS[pk.id._spot];selectSpot({name:s[0],lat:s[1],lon:s[2],spot:pk.id._spot});return}
+  const c=V.camera.pickEllipsoid(pos,C.Ellipsoid.WGS84);if(!c)return;const g=C.Cartographic.fromCartesian(c);selectSpot({name:null,lat:C.Math.toDegrees(g.latitude),lon:C.Math.toDegrees(g.longitude)})}
+function selectSpot(sel){if(!sel.name)sel.name=placeName(sel.lat,sel.lon);MAP.sel=sel;
+  if(V){const M=MAP.ents;M.sel.position=Cesium.Cartesian3.fromDegrees(sel.lon,sel.lat,0);M.sel.label.text=sel.name;M.sel.show=true}else drawMap();updMapBar()}
+function updMapBar(){const fly=MAP.mode==='fly',s=MAP.sel,P=S.plane;
+  vis('#mAP',fly&&!!s&&!P.crashed);vis('#mJump',fly&&!!s);vis('#mStart',!fly&&!!s);vis('#mFree',fly&&!s&&!!S.target);vis('#mRand',!s);
+  $('#mJump').textContent=P.crashed?'Fly from here':'Teleport here';$('#mTitle').textContent=fly?'Map':'Pick your start';
+  let t;if(s){t=s.name;if(fly){const dk=gcKm(P.pos,ll2v(s.lat,s.lon));t+=` · ${fmtDist(dk)} away`;if(!P.crashed)t+=` · ${fmtTime(dk/Math.max(P.v,.01))} on autopilot`}}
+  else t=(fly?'Tap any spot to fly there. ':'Tap anywhere to start there. ')+(V?'Drag to spin, pinch to zoom.':'Drag to move, + and − to zoom.');
+  $('#mInfo').textContent=t}
+function randomCity(){const p=S.plane.pos,fly=MAP.mode==='fly',c=CITIES.filter(c=>{const d=gcKm(p,ll2v(c[1],c[2]));return fly?d>300&&d<6000:true}),L=c.length?c:CITIES,k=L[Math.random()*L.length|0];
+  selectSpot({name:k[0],lat:k[1],lon:k[2]});if(V){try{V.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(k[2],k[1],Math.max(1.2e6,V.camera.positionCartographic.height)),orientation:{heading:0,pitch:-Cesium.Math.PI_OVER_TWO,roll:0},duration:1.2})}catch(e){}}
+  else{MAP.cx=k[2];MAP.cy=k[1];clampMap();drawMap()}}
+function mapZoom(k){if(V){const h=V.camera.positionCartographic.height;if(k>1)V.camera.zoomIn(h*.5);else V.camera.zoomOut(h)}else{MAP.z=clamp(MAP.z*k,1,40);clampMap();drawMap()}}
+const elevGuess=(la,lo)=>{try{return clamp(sampleA(ELEVA,la,lo)*6,0,7)}catch(e){return 0}};
+function teleport(sel){const P=S.plane,{hdg}=attitude(P),v=P.v,thr=P.crashed?.5:P.thr;apOff();
+  setDay(sel.lat,sel.lon);placePlane([sel.lat,sel.lon],V?elevGuess(sel.lat,sel.lon)+.8:Math.max(P.alt,.6),hdg);S.plane.v=v;S.plane.thr=thr;syncThr();makeClouds(sel.lat,sel.lon,.8);beginHold(true);
+  if(S.target&&gcKm(S.plane.pos,S.target.v)<1)clearTarget();toast(`Teleported to ${sel.name}`,V?'Loading the 3D city…':'')}
+// drawn map (only without the 3D map)
+function sizeMap(){mapC.width=Math.round(innerWidth*dpr);mapC.height=Math.round(innerHeight*dpr)}
+const mppd=()=>Math.max(mapC.width/360,mapC.height/180)*MAP.z;
+function clampMap(){const p=mppd(),hh=mapC.height/2/p;MAP.cy=hh>=90?0:clamp(MAP.cy,-90+hh,90-hh);MAP.cx=((MAP.cx+540)%360)-180}
+function m2s(lat,lon){const p=mppd(),dl=((lon-MAP.cx+540)%360)-180;return[mapC.width/2+dl*p,mapC.height/2-(lat-MAP.cy)*p]}
+function s2m(x,y){const p=mppd();return[clamp(MAP.cy+(mapC.height/2-y)/p,-89.9,89.9),((MAP.cx+(x-mapC.width/2)/p+540)%360)-180]}
+function drawMap(){const x=mx2,w=mapC.width,h=mapC.height,p=mppd(),d=dpr;x.fillStyle='#071222';x.fillRect(0,0,w,h);x.imageSmoothingQuality='high';
+  for(const k of[-1,0,1])x.drawImage(MAPC,w/2+(-180-MAP.cx+360*k)*p,h/2-(90-MAP.cy)*p,360*p,180*p);
+  x.strokeStyle='rgba(255,255,255,.08)';x.lineWidth=1;x.beginPath();for(let lo=-180;lo<180;lo+=30){const[X]=m2s(0,lo);x.moveTo(X,0);x.lineTo(X,h)}for(let la=-60;la<=60;la+=30){const[,Y]=m2s(la,0);x.moveTo(0,Y);x.lineTo(w,Y)}x.stroke();
+  const fly=MAP.mode==='fly',me=mapLL();
+  if(fly&&S.target){const a=norm(S.plane.pos),b=S.target.v,om=Math.acos(clamp(dot(a,b),-1,1)),sn=Math.sin(om)||1;x.strokeStyle='#ff4fb0';x.lineWidth=2.5*d;x.setLineDash([8*d,6*d]);x.beginPath();let pv=null;
+    for(let i=0;i<=64;i++){const k=i/64,[la,lo]=v2ll(add(mul(a,Math.sin((1-k)*om)/sn),mul(b,Math.sin(k*om)/sn))),[X,Y]=m2s(la,lo);if(pv===null||Math.abs(X-pv)>w*.5)x.moveTo(X,Y);else x.lineTo(X,Y);pv=X}x.stroke();x.setLineDash([])}
+  x.font=`600 ${12*d}px "Barlow Semi Condensed",sans-serif`;x.textBaseline='middle';
+  for(const c of CITIES){const[X,Y]=m2s(c[1],c[2]);if(X<-20||X>w+20||Y<-20||Y>h+20)continue;x.fillStyle='#fff';x.beginPath();x.arc(X,Y,3*d,0,7);x.fill();if(MAP.z>=2.5||c[3]>=.9){x.shadowColor='#000';x.shadowBlur=4*d;x.fillText(c[0],X+6*d,Y);x.shadowBlur=0}}
+  for(const s of SPOTS){const[X,Y]=m2s(s[1],s[2]);x.fillStyle='#ffcc4d';x.beginPath();x.arc(X,Y,4.5*d,0,7);x.fill()}
+  if(fly&&S.target){const[X,Y]=m2s(S.target.lat,S.target.lon);x.fillStyle='#ff4fb0';x.beginPath();x.arc(X,Y,6*d,0,7);x.fill()}
+  const[PX,PY]=m2s(me[0],me[1]),hd=fly?attitude(S.plane).hdg:0;x.save();x.translate(PX,PY);x.rotate(hd);x.fillStyle='#8fd3ff';x.strokeStyle='#071222';x.lineWidth=2*d;x.beginPath();x.moveTo(0,-11*d);x.lineTo(8*d,10*d);x.lineTo(0,5*d);x.lineTo(-8*d,10*d);x.closePath();x.fill();x.stroke();x.restore();
+  if(MAP.sel){const[X,Y]=m2s(MAP.sel.lat,MAP.sel.lon);x.strokeStyle='#ffcc4d';x.lineWidth=2.5*d;x.beginPath();x.arc(X,Y,12*d,0,7);x.moveTo(X-20*d,Y);x.lineTo(X-6*d,Y);x.moveTo(X+6*d,Y);x.lineTo(X+20*d,Y);x.moveTo(X,Y-20*d);x.lineTo(X,Y-6*d);x.moveTo(X,Y+6*d);x.lineTo(X,Y+20*d);x.stroke()}}
+{let down=null;mapC.addEventListener('pointerdown',e=>{if(V)return;mapC.setPointerCapture(e.pointerId);down={x:e.clientX,y:e.clientY,cx:MAP.cx,cy:MAP.cy,moved:false}});
+ mapC.addEventListener('pointermove',e=>{if(!down)return;const dx=e.clientX-down.x,dy=e.clientY-down.y;if(Math.hypot(dx,dy)>6)down.moved=true;if(down.moved){const p=mppd()/dpr;MAP.cx=down.cx-dx/p;MAP.cy=down.cy+dy/p;clampMap();drawMap()}});
+ mapC.addEventListener('pointerup',e=>{if(!down)return;if(!down.moved){const X=e.clientX*dpr,Y=e.clientY*dpr;let best=null,bd=24*dpr;
+   for(const[i,s]of SPOTS.entries()){const[sx2,sy2]=m2s(s[1],s[2]),dd=Math.hypot(sx2-X,sy2-Y);if(dd<bd){bd=dd;best={name:s[0],lat:s[1],lon:s[2],spot:i}}}
+   if(!best)for(const c of CITIES){const[cx,cy]=m2s(c[1],c[2]),dd=Math.hypot(cx-X,cy-Y);if(dd<bd){bd=dd;best={name:c[0],lat:c[1],lon:c[2]}}}
+   if(!best){const[la,lo]=s2m(X,Y);best={name:null,lat:la,lon:lo}}selectSpot(best)}down=null});
+ mapC.addEventListener('wheel',e=>{e.preventDefault();mapZoom(e.deltaY<0?1.25:1/1.25)},{passive:false})}
+
 // ---------- screens ----------
-function showScreen(n){S.screen=n;for(const[id,s]of[['#keyS','key'],['#menu','menu'],['#game','fly'],['#load','loading']])$(id).classList.toggle('hidden',n!==s)}
+function showScreen(n){S.screen=n;for(const[id,s]of[['#keyS','key'],['#menu','menu'],['#game','fly'],['#load','loading'],['#mapS','map']])$(id).classList.toggle('hidden',n!==s)}
 const bar=(l,v)=>`<div class="stat"><span>${l}</span><div class="bar"><i style="width:${Math.round(clamp(v,.06,1)*100)}%"></i></div></div>`;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function buildMenu(){$('#planes').innerHTML=Object.entries(PL).map(([id,d])=>`<button class="card${id===S.planeId?' on':''}" data-id="${id}"><b>${d.name}</b><span>${d.kind}</span>${bar('Speed',d.vMax/.6)}${bar('Agility',d.roll/4)}${bar('Ceiling',d.ceil/18)}</button>`).join('');
   $$('#planes .card').forEach(b=>b.onclick=()=>{S.planeId=b.dataset.id;store.set('plane',S.planeId);$$('#planes .card').forEach(x=>x.classList.toggle('on',x===b));setModel();startSpot(S.spot)});
-  $('#locs').innerHTML=SPOTS.map((s,i)=>`<button class="chip${i===S.spot?' on':''}" data-i="${i}">${s[0]}</button>`).join('');
-  $$('#locs .chip').forEach(b=>b.onclick=()=>{startSpot(+b.dataset.i);$$('#locs .chip').forEach(x=>x.classList.toggle('on',x===b))})}
-function toMenu(){$('#crash').classList.add('hidden');startSpot(S.spot);buildMenu();showScreen('menu')}
-function takeOff(){startSpot(S.spot);S.cam='chase';$('#bCam').textContent='Chase';showScreen('fly');resize();domT=0;locT=0;
-  toast(`Flying over ${SPOTS[S.spot][0]}`,coarse?'Drag the stick down to climb. Slide the throttle for speed.':'W/S pitch · A/D roll · Shift/Ctrl throttle · C camera')}
+  $('#locs').innerHTML=`<button class="chip pick" id="pickMap">Pick on map…</button>`+(S.custom?`<button class="chip${S.spot===-1?' on':''}" data-i="-1">${esc(S.custom.name)}</button>`:'')+SPOTS.map((s,i)=>`<button class="chip${i===S.spot?' on':''}" data-i="${i}">${s[0]}</button>`).join('');
+  $$('#locs .chip[data-i]').forEach(b=>b.onclick=()=>{startSpot(+b.dataset.i);$$('#locs .chip').forEach(x=>x.classList.toggle('on',x===b))});
+  $('#pickMap').onclick=()=>openMap('start');
+  segs();const on=$('#locs .chip.on');if(on)on.scrollIntoView({block:'nearest',inline:'center'})}
+function toMenu(){closeMap('menu');$('#crash').classList.add('hidden');togglePause(false);S.ap.on=false;S.warp=1;cam.zoom=1;FX.parts.length=0;updBtns();startSpot(S.spot);buildMenu();showScreen('menu')}
+function takeOff(){initAudio();startSpot(S.spot);cam.mode='chase';cam.zoom=1;S.warp=1;S.ap.on=false;togglePause(false);updBtns();showScreen('fly');resize();domT=0;locT=0;
+  toast(`Flying over ${spotInfo(S.spot).name}`,coarse?'Drag the stick down to climb. Map picks a place, Auto flies for you, ×1 speeds up time.':'W/S pitch · A/D roll · Shift/Ctrl throttle · M map · P autopilot · T time · G gear')}
+function togglePause(on){S.paused=on??!S.paused;$('#pause').classList.toggle('hidden',!S.paused);if(S.paused){hideToast();inp.stick=[0,0];$('#knob').style.transform=''}else initAudio();segs()}
+function segs(){$$('.seg[data-k]').forEach(sg=>{const k=sg.dataset.k;sg.querySelectorAll('button').forEach(b=>b.classList.toggle('on',String(S[k])===b.dataset.v))})}
+function onSet(k){const P=S.plane;if(k==='q'){applyQuality();if(V)toast(S.q==='fast'?'Fast graphics':S.q==='balanced'?'Balanced graphics':'Sharp graphics',S.q==='fast'?'Smoothest on older phones':S.q==='balanced'?'Clear city detail, good speed':'Most detail. Can get warm on phones.')}
+  if((k==='tod'||k==='wx')&&P){const[la,lo]=v2ll(P.pos);if(k==='tod')setDay(la,lo);else makeClouds(la,lo,Math.max(P.alt,(S.ground??0)+.3))}
+  if(k==='sound'){if(S.sound)initAudio()}if(k==='units'){domT=0;miniT=0}}
+function cycleCam(){cam.mode={chase:'cockpit',cockpit:'flyby',flyby:'chase'}[cam.mode];cam.fly=null;updBtns()}
 async function loadWorld(key){$('#keyErr').textContent='';$('#keyGo').disabled=true;$('#keyGo').textContent='Loading…';
   try{if(!window.Cesium)throw new Error('The 3D map library could not load. Check your internet connection and try again.');const C=window.Cesium;
-    if(!V){V=new C.Viewer('cesium',{globe:false,baseLayer:false,baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,navigationHelpButton:false,animation:false,timeline:false,fullscreenButton:false,infoBox:false,selectionIndicator:false,scene3DOnly:true});
-      V.scene.screenSpaceCameraController.enableInputs=false;if(V.scene.skyAtmosphere)V.scene.skyAtmosphere.show=true;
-      V.scene.preUpdate.addEventListener(()=>frame(performance.now()));V.scene.postRender.addEventListener(()=>{render();drawHud()})}
+    if(!V){V=new C.Viewer('cesium',{globe:false,baseLayer:false,baseLayerPicker:false,geocoder:false,homeButton:false,sceneModePicker:false,navigationHelpButton:false,animation:false,timeline:false,fullscreenButton:false,infoBox:false,selectionIndicator:false,scene3DOnly:true,showRenderLoopErrors:false,useBrowserRecommendedResolution:false,msaaSamples:1});
+      const sc=V.scene;sc.screenSpaceCameraController.enableInputs=false;try{if(sc.skyAtmosphere)sc.skyAtmosphere.show=true;if(sc.sun)sc.sun.show=true;if(sc.moon)sc.moon.show=false;if(sc.fog)sc.fog.enabled=true}catch(e){}
+      sc.preUpdate.addEventListener(()=>{try{frame(performance.now())}catch(e){console.error(e)}});sc.postRender.addEventListener(()=>{try{render();drawHud()}catch(e){console.error(e)}});
+      let errs=0;sc.renderError.addEventListener((s,e)=>{console.error(e);errs++;dropExtras();if(errs<5){V.useDefaultRenderLoop=true;if(errs===1)toast('Some graphics effects were turned off','Your device had trouble with them')}else toast('The 3D map stopped','Reload the page to try again')})}
     const google=/^AIza/.test(key);if(google)C.GoogleMaps.defaultApiKey=key;else{C.GoogleMaps.defaultApiKey=undefined;C.Ion.defaultAccessToken=key}
     if(TS){V.scene.primitives.remove(TS);TS=null}
-    TS=await C.createGooglePhotorealistic3DTileset(undefined,{showCreditsOnScreen:true,maximumScreenSpaceError:coarse?24:16});
-    V.scene.primitives.add(TS);
+    TS=await C.createGooglePhotorealistic3DTileset(undefined,{showCreditsOnScreen:true,maximumScreenSpaceError:16});
+    V.scene.primitives.add(TS);applyQuality();
     let warned=false;TS.tileFailed.addEventListener(()=>{if(!warned){warned=true;toast('Some map tiles failed to load','Check your token or key, or try again in a minute')}});
     if($('#keyRem').checked)store.set('gkey',key);else store.del('gkey');
-    toMenu()}
+    clKey='';toMenu()}
   catch(e){console.error(e);const m=String(e&&e.message||e);const g=/^AIza/.test(key);$('#keyErr').textContent=/40[13]|denied|key|token|forbidden|unauthor/i.test(m)?(g?'Google turned down this key. Make sure the Map Tiles API is enabled and billing is set up for its project.':'Cesium did not accept this token. In your Cesium ion account, open Access Tokens and copy the Default token.'):m}
   finally{$('#keyGo').disabled=false;$('#keyGo').textContent='Load the 3D world'}}
 
 // ---------- input ----------
-addEventListener('keydown',e=>{inp.keys.add(e.code);if(S.screen!=='fly')return;if(e.code==='KeyC')cycleCam();if(/^Digit\d$/.test(e.code)){S.plane.thr=e.code==='Digit0'?1:+e.code.slice(5)/10;syncThr()}
+addEventListener('keydown',e=>{if(e.repeat&&['KeyC','KeyM','KeyP','KeyT','KeyG','Escape'].includes(e.code))return;inp.keys.add(e.code);
+  if(e.code==='Escape'){if(MAP.open){closeMap();return}for(const id of['#fsHelp','#how'])if(!$(id).classList.contains('hidden')){$(id).classList.add('hidden');return}if(S.screen==='fly')togglePause()}
+  if(S.screen!=='fly'||S.paused||MAP.open)return;
+  if(e.code==='KeyC')cycleCam();if(e.code==='KeyM')openMap('fly');if(e.code==='KeyP')S.ap.on?apOff('Back to manual'):apOn();if(e.code==='KeyT')cycleWarp();if(e.code==='KeyG')toggleGear();
+  if(/^Digit\d$/.test(e.code)){S.plane.thr=e.code==='Digit0'?1:+e.code.slice(5)/10;syncThr()}
   if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault()});
 addEventListener('keyup',e=>inp.keys.delete(e.code));addEventListener('blur',()=>inp.keys.clear());
 function readInputs(dt){const K=c=>inp.keys.has(c)?1:0,kp=K('KeyS')+K('ArrowDown')-K('KeyW')-K('ArrowUp'),kr=K('KeyD')+K('ArrowRight')-K('KeyA')-K('ArrowLeft'),ky=K('KeyE')-K('KeyQ');
-  const p=clamp(kp+inp.stick[1],-1,1)*(S.invert?-1:1),r=clamp(kr+inp.stick[0],-1,1),a=Math.min(1,dt*7);inp.p+=(p-inp.p)*a;inp.r+=(r-inp.r)*a;inp.y+=(ky-inp.y)*a;
-  const tk=K('ShiftLeft')+K('ShiftRight')+K('KeyR')-K('ControlLeft')-K('ControlRight')-K('KeyF');if(tk&&S.screen==='fly'){S.plane.thr=clamp(S.plane.thr+tk*dt*.45,0,1);syncThr()}}
-function cycleCam(){S.cam=S.cam==='chase'?'cockpit':'chase';$('#bCam').textContent=S.cam==='chase'?'Chase':'Cockpit'}
+  const rp0=clamp(kp+inp.stick[1],-1,1),rr0=clamp(kr+inp.stick[0],-1,1);if(S.ap.on&&S.screen==='fly'&&(Math.abs(rp0)>.35||Math.abs(rr0)>.35))apOff('You took the controls');
+  const p=rp0*(S.invert?-1:1),r=rr0,a=Math.min(1,dt*7);inp.p+=(p-inp.p)*a;inp.r+=(r-inp.r)*a;inp.y+=(ky-inp.y)*a;
+  const tk=K('ShiftLeft')+K('ShiftRight')+K('KeyR')-K('ControlLeft')-K('ControlRight')-K('KeyF');if(tk&&S.screen==='fly'&&!S.paused){S.plane.thr=clamp(S.plane.thr+tk*dt*.45,0,1);if(S.ap.on)S.ap.v=clamp(S.ap.v+tk*dt*.45*(S.plane.d.vMax-S.plane.d.vMin),S.plane.d.vMin*1.45,S.plane.d.vMax);syncThr()}}
 {const st=$('#stick'),kn=$('#knob');let id=null;const mv=e=>{const r=st.getBoundingClientRect(),R=r.width/2;let x=(e.clientX-r.left-R)/R,y=(e.clientY-r.top-R)/R;const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}
   inp.stick=[x,y].map(v=>Math.sign(v)*Math.pow(Math.abs(v),1.4));kn.style.transform=`translate(${x*R*.62}px,${y*R*.62}px)`};
  st.addEventListener('pointerdown',e=>{id=e.pointerId;st.setPointerCapture(id);mv(e)});st.addEventListener('pointermove',e=>{if(e.pointerId===id)mv(e)});
  const up=e=>{if(e.pointerId!==id)return;id=null;inp.stick=[0,0];kn.style.transform=''};st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up)}
-{const th=$('#thr');let id=null;const mv=e=>{const r=th.getBoundingClientRect();S.plane.thr=clamp(1-(e.clientY-r.top-8)/(r.height-16),0,1);syncThr()};
+{const th=$('#thr');let id=null;const mv=e=>{const r=th.getBoundingClientRect(),P=S.plane,old=P.thr;P.thr=clamp(1-(e.clientY-r.top-8)/(r.height-16),0,1);
+   if(S.ap.on)S.ap.v=clamp(S.ap.v+(P.thr-old)*(P.d.vMax-P.d.vMin),P.d.vMin*1.45,P.d.vMax);syncThr()};
  th.addEventListener('pointerdown',e=>{id=e.pointerId;th.setPointerCapture(id);mv(e)});th.addEventListener('pointermove',e=>{if(e.pointerId===id)mv(e)});th.addEventListener('pointerup',()=>id=null);th.addEventListener('pointercancel',()=>id=null)}
 {let d=null;cv.addEventListener('pointerdown',e=>{if(S.screen!=='fly')return;d={x:e.clientX,y:e.clientY,id:e.pointerId};cv.setPointerCapture(e.pointerId)});
  cv.addEventListener('pointermove',e=>{if(!d||e.pointerId!==d.id)return;cam.orbY-=(e.clientX-d.x)*.008;cam.orbP=clamp(cam.orbP+(e.clientY-d.y)*.006,-1.2,1.2);cam.orbT=2.2;d.x=e.clientX;d.y=e.clientY});
- cv.addEventListener('pointerup',()=>d=null);cv.addEventListener('pointercancel',()=>d=null)}
+ cv.addEventListener('pointerup',()=>d=null);cv.addEventListener('pointercancel',()=>d=null);
+ cv.addEventListener('wheel',e=>{if(S.screen!=='fly')return;e.preventDefault();cam.zoom=clamp(cam.zoom*(e.deltaY>0?1.1:1/1.1),.5,4)},{passive:false})}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&S.screen==='fly'&&!S.paused&&!MAP.open)togglePause(true);if(AC){document.hidden?AC.suspend():AC.resume()}});
 addEventListener('touchstart',()=>{$('#stick').classList.remove('hidden');$('#keys').classList.add('hidden')},{passive:true,once:true});
 addEventListener('resize',resize);
-$('#keyGo').onclick=()=>{const k=$('#keyIn').value.trim();if(!k){$('#keyErr').textContent='Paste your API key first.';return}loadWorld(k)};
+$('#keyGo').onclick=()=>{const k=$('#keyIn').value.trim();if(!k){$('#keyErr').textContent='Paste your token first.';return}loadWorld(k)};
 $('#keyNo').onclick=()=>{toMenu();if(!V)toast('No 3D map loaded','You can still try the controls over a plain sky')};
-$('#go').onclick=takeOff;$('#bCam').onclick=cycleCam;$('#bMenu').onclick=toMenu;$('#cRes').onclick=respawn;$('#cMenu').onclick=toMenu;$('#newKey').onclick=()=>showScreen('key');
-$$('#invSeg button').forEach(b=>b.onclick=()=>{S.invert=b.dataset.v==='true';store.set('invert',S.invert);$$('#invSeg button').forEach(x=>x.classList.toggle('on',x===b))});
-$$('#invSeg button').forEach(b=>b.classList.toggle('on',(b.dataset.v==='true')===S.invert));
+$('#go').onclick=takeOff;$('#bCam').onclick=cycleCam;$('#bGear').onclick=toggleGear;$('#bWarp').onclick=cycleWarp;$('#bPause').onclick=()=>togglePause(true);
+$('#pResume').onclick=()=>togglePause(false);$('#pMenu').onclick=toMenu;$('#cRes').onclick=respawn;$('#cMenu').onclick=toMenu;$('#newKey').onclick=()=>showScreen('key');
+$('#howBtn').onclick=$('#pHow').onclick=()=>$('#how').classList.remove('hidden');$('#howClose').onclick=()=>$('#how').classList.add('hidden');$('#mRand').onclick=randomCity;
+$('#bMap').onclick=()=>openMap('fly');$('#dest').onclick=()=>openMap('fly');$('#miniC').onclick=()=>openMap('fly');$('#cMap').onclick=()=>openMap('fly');
+$('#mz').onclick=()=>{miniZ=(miniZ+1)%MZ.length;store.set('miniZ',miniZ);miniT=0;$('#mz').textContent=miniZ===MZ.length-1?'+':'−'};
+$('#bAuto').onclick=()=>S.ap.on?apOff('Back to manual'):apOn();
+$('#mClose').onclick=()=>closeMap();$('#mzIn').onclick=()=>mapZoom(1.6);$('#mzOut').onclick=()=>mapZoom(1/1.6);
+$('#mAP').onclick=()=>{const s=MAP.sel;setTarget(s);closeMap('fly');apOn()};
+$('#mJump').onclick=()=>{const s=MAP.sel;closeMap('fly');teleport(s)};
+$('#mFree').onclick=()=>{clearTarget();closeMap('fly');toast('Route cleared',S.ap.on?'Autopilot is holding your heading':'Free flight')};
+$('#mStart').onclick=()=>{const s=MAP.sel;if(s.spot!==undefined)S.spot=s.spot;else{S.custom={name:s.name,lat:+s.lat.toFixed(5),lon:+s.lon.toFixed(5)};store.set('custom',S.custom);S.spot=-1}
+  startSpot(S.spot);buildMenu();closeMap('menu')};
+$$('.seg[data-k] button').forEach(b=>b.onclick=()=>{const k=b.parentElement.dataset.k,v=b.dataset.v;S[k]=v==='true'?true:v==='false'?false:v;store.set(k,S[k]);segs();onSet(k)});
+
+// ---------- full screen ----------
+const isStandalone=()=>navigator.standalone===true||matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches;
+const isFs=()=>!!(document.fullscreenElement||document.webkitFullscreenElement);
+function fsSupported(){const d=document.documentElement;return!!((d.requestFullscreen||d.webkitRequestFullscreen)&&(document.fullscreenEnabled||document.webkitFullscreenEnabled))}
+async function toggleFs(){if(isStandalone()&&!fsSupported()){toast('Already full screen','You opened Real Earth from your home screen');return}
+  if(!fsSupported()){$('#fsHelp').classList.remove('hidden');return}
+  try{if(isFs())await(document.exitFullscreen||document.webkitExitFullscreen).call(document);
+    else{const d=document.documentElement;await(d.requestFullscreen?d.requestFullscreen({navigationUI:'hide'}):d.webkitRequestFullscreen());try{await screen.orientation.lock('landscape')}catch(e){}}}
+  catch(e){$('#fsHelp').classList.remove('hidden')}}
+function updFs(){$$('.fsBtn').forEach(b=>{b.textContent=isFs()?'Exit full screen':'Full screen';b.classList.toggle('hidden',isStandalone()&&!fsSupported())});setTimeout(resize,120)}
+['fullscreenchange','webkitfullscreenchange'].forEach(ev=>document.addEventListener(ev,updFs));
+$$('.fsBtn').forEach(b=>b.onclick=toggleFs);$('#fsClose').onclick=()=>$('#fsHelp').classList.add('hidden');
+// home-screen icon, drawn here so the page stays a single file
+try{const c=document.createElement('canvas');c.width=c.height=180;const x=c.getContext('2d'),g=x.createLinearGradient(0,0,0,180);g.addColorStop(0,'#1d4e89');g.addColorStop(.62,'#7fb2dc');g.addColorStop(1,'#d9c39a');x.fillStyle=g;x.fillRect(0,0,180,180);
+  x.fillStyle='rgba(255,255,255,.9)';x.beginPath();x.arc(132,52,18,0,7);x.fill();x.translate(90,96);x.rotate(-.35);x.fillStyle='#f3f6fa';
+  x.beginPath();x.moveTo(-62,0);x.quadraticCurveTo(-58,-9,-40,-9);x.lineTo(48,-6);x.quadraticCurveTo(66,-3,68,2);x.quadraticCurveTo(66,7,48,8);x.lineTo(-40,9);x.quadraticCurveTo(-58,9,-62,0);x.fill();
+  x.beginPath();x.moveTo(-6,-6);x.lineTo(-30,-52);x.lineTo(-16,-52);x.lineTo(22,-5);x.fill();x.beginPath();x.moveTo(-6,7);x.lineTo(-30,52);x.lineTo(-16,52);x.lineTo(22,6);x.fill();
+  x.beginPath();x.moveTo(-50,-4);x.lineTo(-62,-26);x.lineTo(-54,-26);x.lineTo(-40,-6);x.fill();$('#appIcon').href=c.toDataURL('image/png')}catch(e){}
+
+// ---------- sound ----------
+let AC=null,AU={};
+function initAudio(){if(!S.sound)return;if(AC){if(AC.state==='suspended')AC.resume();return}
+  try{AC=new(window.AudioContext||window.webkitAudioContext)();const n=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate),dd=n.getChannelData(0);let b=0;for(let i=0;i<dd.length;i++){b=(b+.02*(Math.random()*2-1))/1.02;dd[i]=b*3.5}
+    const mk=(type,f)=>{const s=AC.createBufferSource();s.buffer=n;s.loop=true;const fl=AC.createBiquadFilter();fl.type=type;fl.frequency.value=f;const g=AC.createGain();g.gain.value=0;s.connect(fl).connect(g);s.start();return[fl,g]};
+    const[lp,g1]=mk('lowpass',500),[bp,g3]=mk('bandpass',900);bp.Q.value=.7;const osc=AC.createOscillator();osc.type='sawtooth';osc.frequency.value=70;const lp2=AC.createBiquadFilter();lp2.type='lowpass';lp2.frequency.value=400;
+    const g2=AC.createGain();g2.gain.value=0;osc.connect(lp2).connect(g2);osc.start();const master=AC.createGain();master.gain.value=0;[g1,g2,g3].forEach(g=>g.connect(master));master.connect(AC.destination);
+    AU={lp,g1,osc,lp2,g2,bp,g3,master}}catch(e){AC=null}}
+function updAudio(){if(!AC||!AU.master||!S.plane)return;const P=S.plane,on=S.sound&&S.screen==='fly'&&!S.paused&&!P.crashed&&!MAP.open&&!S.hold,t=AC.currentTime,th=P.thr,sp=P.v/P.d.vMax,ck=cam.mode==='cockpit'?.55:1;
+  AU.master.gain.setTargetAtTime(on?.55:0,t,.25);
+  if(P.d.jet){AU.lp.frequency.setTargetAtTime(250+th*1300,t,.3);AU.g1.gain.setTargetAtTime((.1+th*.35)*ck,t,.3);AU.g2.gain.setTargetAtTime(0,t,.3)}
+  else{AU.osc.frequency.setTargetAtTime(50+th*80,t,.2);AU.lp2.frequency.setTargetAtTime(220+th*520,t,.2);AU.g2.gain.setTargetAtTime((.06+th*.12)*ck,t,.2);AU.lp.frequency.setTargetAtTime(220+th*260,t,.3);AU.g1.gain.setTargetAtTime(.08*ck,t,.3)}
+  AU.g3.gain.setTargetAtTime(clamp(sp,0,1.2)*.1*ck,t,.3);AU.bp.frequency.setTargetAtTime(500+sp*900,t,.3)}
 
 // ---------- loop ----------
-function frame(now){const dt=clamp((now-last)/1000,0,.05);last=now;S.t+=dt;readInputs(dt);
-  if(S.screen==='fly'&&!S.plane.crashed)physics(dt);
-  if(S.plane){updCam(dt);updEnv();camToCesium();sampleGround(dt);updHudDom(dt);if(S.screen==='fly'&&(miniT-=dt)<=0){miniT=1/12;drawMini()}}}
+function frame(now){const dt=clamp((now-last)/1000,0,.05);last=now;S.t+=dt;if(!S.plane)return;readInputs(dt);updAudio();updFx(dt);
+  if(MAP.open)return;const P=S.plane;
+  if(S.hold)holdStep(dt);else if(S.screen==='fly'&&!S.paused&&!P.crashed){physics(dt);missions();trailsUpdate(dt);if((S.trailT-=dt)<=0){S.trailT=2;S.trail.push(v2ll(P.pos));if(S.trail.length>600)S.trail.shift()}}
+  updCam(dt);if(FX.shake>0){const a=FX.shake*FX.shake*.006;cam.pos=add(cam.pos,[(Math.random()-.5)*a,(Math.random()-.5)*a,(Math.random()-.5)*a])}
+  updEnv();camToCesium();sampleGround(dt);updHudDom(dt);if(S.screen==='fly'&&(miniT-=dt)<=0){miniT=1/12;drawMini()}
+  if(V&&MAP.ents&&S.target&&(S.t%1<dt)){MAP.ents.tgt.label.text=`${S.target.name} · ${fmtDist(gcKm(P.pos,S.target.v))}`}}
 function ownLoop(now){if(!V){try{frame(now);render();drawHud()}catch(e){console.error(e)}}requestAnimationFrame(ownLoop)}
 function boot(){if(!gl){$('#loadMsg').textContent='This needs WebGL 2. Try a recent Chrome, Safari or Firefox.';return}
-  setTimeout(()=>{try{genWorld();PP=mkProg(VS_PLANE,FS_PLANE,['aP','aN','aC','aM']);setModel();startSpot(S.spot);resize();buildMenu();
-    const k=store.get('gkey','');if(k){$('#keyIn').value=k}showScreen('key');requestAnimationFrame(ownLoop)}catch(e){console.error(e);$('#loadMsg').textContent='Could not start: '+e.message}},40)}
+  setTimeout(()=>{try{genWorld();initGL();setModel();startSpot(S.spot);resize();buildMenu();updBtns();$('#mz').textContent=miniZ===MZ.length-1?'+':'−';
+    updFs();const k=store.get('gkey','');if(k){$('#keyIn').value=k}showScreen('key');requestAnimationFrame(ownLoop)}catch(e){console.error(e);$('#loadMsg').textContent='Could not start: '+e.message}},40)}
 $(coarse?'#keys':'#stick').classList.add('hidden');
 boot();
 
